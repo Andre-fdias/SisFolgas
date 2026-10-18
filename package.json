@@ -4,6 +4,7 @@
   "description": "Sistema Seguro de Gerenciamento e Escolha de Folgas para o Corpo de Bombeiros Militar",
   "main": "Code.js",
   "scripts": {
+    "start": "node dev_server.js",
     "test": "node --test tests/*.js"
   },
   "keywords": [
