@@ -1,0 +1,19 @@
+{
+  "name": "sisfolgas-cbm",
+  "version": "1.0.0",
+  "description": "Sistema Seguro de Gerenciamento e Escolha de Folgas para o Corpo de Bombeiros Militar",
+  "main": "Code.js",
+  "scripts": {
+    "test": "node --test tests/*.js"
+  },
+  "keywords": [
+    "google-apps-script",
+    "sheets",
+    "rbac",
+    "cbm",
+    "folgas",
+    "lgpd"
+  ],
+  "author": "Corpo de Bombeiros Militar",
+  "license": "UNLICENSED"
+}
