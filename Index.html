@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Gerenciamento e Escolha de Folgas - CBM</title>
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-badge" id="app-badge">🚒</div>
+        <div class="brand-title">
+          <h1 id="app-title">Sistema de Escolha de Folgas</h1>
+          <p id="app-subtitle">Corpo de Bombeiros Militar • Escala 24x48</p>
+        </div>
+      </div>
+
+      <div class="user-badge-group">
+        <div class="user-pill" id="user-info-pill">
+          <span id="user-display-name">Carregando autenticação...</span>
+          <span class="user-role-tag" id="user-role-badge">...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-wrapper">
+
+    <!-- KPI Metric Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Competência Vigente</div>
+        <div class="kpi-value" id="kpi-competencia">--</div>
+        <div class="kpi-subtext" id="kpi-periodo-status">Verificando período...</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Minha Prontidão</div>
+        <div class="kpi-value" id="kpi-equipe">--</div>
+        <div class="kpi-subtext" id="kpi-antiguidade">Posição na antiguidade: --</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Minha Situação</div>
+        <div class="kpi-value" id="kpi-status-escolha">--</div>
+        <div class="kpi-subtext" id="kpi-data-folga">Nenhuma data confirmada</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Vagas na Minha Equipe</div>
+        <div class="kpi-value" id="kpi-vagas-restantes">--</div>
+        <div class="kpi-subtext" id="kpi-proximo-vez">Próximo da vez: --</div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-escolha" id="btn-tab-escolha">Minha Escolha</button>
+      <button class="tab-btn" data-tab="tab-fila" id="btn-tab-fila">Fila das Equipes</button>
+      <button class="tab-btn" data-tab="tab-gestor" id="btn-tab-gestor" style="display: none;">Painel Operacional</button>
+      <button class="tab-btn" data-tab="tab-admin" id="btn-tab-admin" style="display: none;">Administração & Auditoria</button>
+    </nav>
+
+    <!-- Tab 1: Minha Escolha -->
+    <section class="tab-pane active" id="tab-escolha">
+      <div id="choice-banner" class="turn-banner">
+        <div>
+          <h2 style="font-family: var(--font-heading); font-size: 1.25rem;" id="choice-banner-title">
+            <span class="pulse-indicator" id="turn-pulse"></span>
+            Aguardando carregamento da sua vez...
+          </h2>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.35rem;" id="choice-banner-desc">
+            A escolha de folga obedece à ordem oficial de antiguidade cadastrada na equipe.
+          </p>
+        </div>
+        <div id="choice-banner-actions">
+          <button class="btn btn-primary" id="btn-confirmar-escolha" disabled>Confirmar Escolha de Folga</button>
+        </div>
+      </div>
+
+      <!-- Detalhes da Escolha Confirmada (se houver) -->
+      <div id="confirmed-choice-box" style="display: none; background: var(--bg-card); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
+        <h3 style="color: var(--status-success); margin-bottom: 0.5rem;">Sua folga está confirmada e homologada!</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Data do seu plantão dispensado: <strong id="confirmed-date-display" style="color: #fff; font-size: 1.1rem;">--</strong></p>
+        <button class="btn btn-danger" id="btn-cancelar-escolha">Solicitar Cancelamento Justificado</button>
+      </div>
+
+      <!-- Grid de Datas de Plantão da Equipe -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h3 style="font-family: var(--font-heading); font-size: 1.1rem;">Dias de Plantão da Sua Equipe (Escala 24x48)</h3>
+            <p style="color: var(--text-secondary); font-size: 0.8rem;">Selecione um dos dias disponíveis em que sua equipe estará de serviço de 24h.</p>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Legenda: <span style="color: var(--status-success);">● Disponível</span> &nbsp;|&nbsp; <span style="color: var(--status-danger);">● Ocupada</span>
+          </div>
+        </div>
+
+        <div class="dates-grid" id="eligible-dates-container">
+          <!-- Gerado dinamicamente via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Fila das Equipes -->
+    <section class="tab-pane" id="tab-fila">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; gap: 0.5rem;" id="team-selector-buttons">
+          <button class="btn btn-secondary active-team" data-team="Equipe A" id="btn-team-a">Equipe A</button>
+          <button class="btn btn-secondary" data-team="Equipe B" id="btn-team-b">Equipe B</button>
+          <button class="btn btn-secondary" data-team="Equipe C" id="btn-team-c">Equipe C</button>
+        </div>
+        <button class="btn btn-secondary" id="btn-refresh-queue">Atualizar Fila</button>
+      </div>
+
+      <div class="table-container">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">Posição</th>
+              <th>Graduação</th>
+              <th>Nome de Guerra</th>
+              <th>Situação da Escolha</th>
+              <th>Data Escolhida</th>
+            </tr>
+          </thead>
+          <tbody id="queue-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando lista da equipe...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 3: Painel Operacional (Gestor / Admin) -->
+    <section class="tab-pane" id="tab-gestor">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        
+        <!-- Passagem de Vez Justificada -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Passagem de Vez na Fila</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Se o militar que está na vez excedeu o prazo de 24h sem manifestação, o Gestor pode registrar a passagem de vez justificada para liberar a fila.
+          </p>
+
+          <form id="form-pass-turn">
+            <div class="form-group">
+              <label class="form-label">Equipe</label>
+              <select class="form-select" id="pass-turn-team-select">
+                <option value="Equipe A">Equipe A</option>
+                <option value="Equipe B">Equipe B</option>
+                <option value="Equipe C">Equipe C</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Militar Atual da Vez</label>
+              <input type="text" class="form-input" id="pass-turn-military-name" readonly placeholder="Calculando próximo da vez...">
+              <input type="hidden" id="pass-turn-military-id">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Justificativa Operacional Obrigatória</label>
+              <textarea class="form-textarea" id="pass-turn-justification" rows="3" placeholder="Ex: Prazo de 24h expirado sem contato do militar conforme escala de serviço."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-submit-pass-turn">Passar a Vez Justificadamente</button>
+          </form>
+        </div>
+
+        <!-- Registro de Afastamento Operacional -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Registro de Afastamento (LGPD)</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Registra férias regulamentares ou licenças operacionais sem expor dados médicos ou CIDs.
+          </p>
+
+          <form id="form-register-leave">
+            <div class="form-group">
+              <label class="form-label">ID do Militar</label>
+              <input type="text" class="form-input" id="leave-military-id" placeholder="UUID do Militar">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="form-group">
+                <label class="form-label">Data Início</label>
+                <input type="date" class="form-input" id="leave-start-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Data Fim</label>
+                <input type="date" class="form-input" id="leave-end-date">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo Operacional</label>
+              <select class="form-select" id="leave-type-select">
+                <option value="FERIAS">Férias Regulamentares</option>
+                <option value="LICENCA_PREMIO">Licença-Prêmio</option>
+                <option value="DISPENSA_SERVICO">Dispensa de Serviço</option>
+                <option value="CURSO">Curso de Especialização</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-secondary" id="btn-submit-leave">Registrar Afastamento</button>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Tab 4: Administração & Auditoria (Admin Only) -->
+    <section class="tab-pane" id="tab-admin">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+        
+        <div class="kpi-card">
+          <div class="kpi-label">Ações Administrativas</div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+            <button class="btn btn-secondary" id="btn-admin-diagnostics">Executar Diagnóstico do Banco</button>
+            <button class="btn btn-secondary" id="btn-admin-backup">Gerar Snapshot de Backup</button>
+            <button class="btn btn-secondary" id="btn-admin-new-period">Abrir / Pausar Período</button>
+          </div>
+        </div>
+
+        <div class="kpi-card" style="grid-column: span 2;">
+          <div class="kpi-label">Diagnóstico de Integridade</div>
+          <div id="diagnostics-summary-box" style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+            Clique em "Executar Diagnóstico do Banco" para verificar integridade, duplicidades de RE e colisões de vagas.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Trilha de Auditoria -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <h3 style="font-family: var(--font-heading); font-size: 1.1rem;">Trilha Imutável de Auditoria (Append-Only)</h3>
+            <p style="color: var(--text-secondary); font-size: 0.8rem;">Registro de segurança identificando e-mails reais, timestamps e resultados.</p>
+          </div>
+          <button class="btn btn-secondary" id="btn-refresh-audit">Recarregar Trilha</button>
+        </div>
+
+        <div class="table-container">
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Usuário Autenticado</th>
+                <th>Ação</th>
+                <th>Entidade</th>
+                <th>Resultado</th>
+                <th>Justificativa</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Clique em Recarregar Trilha para visualizar os eventos.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal de Confirmação de Escolha -->
+  <div class="modal-overlay" id="modal-confirm-choice">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Confirmar Escolha de Folga</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">Você está prestes a confirmar sua folga para a seguinte data de serviço:</p>
+        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 1rem; text-align: center; margin-bottom: 1.25rem;">
+          <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Data Selecionada</span>
+          <div style="font-family: var(--font-heading); font-size: 1.75rem; font-weight: 800; color: #fff;" id="modal-choice-date-text">--</div>
+          <span style="font-size: 0.8rem; color: var(--brand-amber);" id="modal-choice-team-text">Plantão de 24 horas</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          A confirmação registrará sua escolha no servidor e liberará a vez para o próximo militar da fila. Esta operação é vinculada à sua conta Google e registrada na auditoria.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-cancel-choice">Voltar</button>
+        <button class="btn btn-primary" id="btn-modal-submit-choice">Confirmar Definitivamente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Cancelamento de Escolha -->
+  <div class="modal-overlay" id="modal-cancel-choice">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Cancelar Folga Confirmada</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">O cancelamento de uma folga confirmada exige justificativa formal que será gravada na trilha de auditoria.</p>
+        <div class="form-group">
+          <label class="form-label">Motivo / Justificativa do Cancelamento</label>
+          <textarea class="form-textarea" id="cancel-choice-justification" rows="3" placeholder="Informe o motivo formal do cancelamento..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-cancel">Fechar</button>
+        <button class="btn btn-danger" id="btn-modal-confirm-cancel">Confirmar Cancelamento</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div style="font-family: var(--font-heading); font-weight: 600; color: #fff;" id="loading-text">Processando operação segura...</div>
+  </div>
+
+  <?!= include('Scripts'); ?>
+</body>
+</html>

@@ -1,0 +1,580 @@
+<script>
+  /**
+   * SISTEMA SEGURO DE GERENCIAMENTO E ESCOLHA DE FOLGAS (CBM)
+   * Scripts.html - Controlador reativo do frontend, comunicação assíncrona segura e proteção anti-duplo clique
+   */
+
+  const App = (function() {
+    // Estado Reativo da Aplicação
+    const state = {
+      authenticated: false,
+      user: null,
+      activePeriod: null,
+      queues: {},
+      selectedTeam: 'Equipe A',
+      selectedDate: null,
+      isSubmitting: false,
+      myChoice: null
+    };
+
+    /* ==========================================================================
+       INICIALIZAÇÃO E UTILITÁRIOS
+       ========================================================================== */
+
+    function init() {
+      setupTabNavigation();
+      setupEventListeners();
+      loadInitialState();
+    }
+
+    function showLoading(text) {
+      const overlay = document.getElementById('loading-overlay');
+      const textElem = document.getElementById('loading-text');
+      if (textElem && text) textElem.textContent = text;
+      if (overlay) overlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `
+        <div style="font-size: 1.1rem;">${type === 'success' ? '✅' : (type === 'error' ? '⚠️' : 'ℹ️')}</div>
+        <div style="flex: 1; font-size: 0.88rem; color: var(--text-primary);">${message}</div>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4500);
+    }
+
+    function generateUuid() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
+
+    /* ==========================================================================
+       COMUNICAÇÃO SEGURA COM O SERVIDOR (google.script.run)
+       ========================================================================== */
+
+    function callServer(methodName, payload = null, loadingMsg = 'Carregando...') {
+      return new Promise((resolve, reject) => {
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          // Mock mode caso executado fora do Google Apps Script
+          console.warn(`[DEV MOCK] Chamada '${methodName}' executada fora do ambiente GAS.`);
+          reject(new Error('Ambiente Google Apps Script não detectado.'));
+          return;
+        }
+
+        showLoading(loadingMsg);
+
+        const runner = google.script.run
+          .withSuccessHandler((response) => {
+            hideLoading();
+            if (response && response.success) {
+              resolve(response.data);
+            } else {
+              const errMsg = (response && response.error && response.error.message) 
+                ? response.error.message 
+                : 'Falha na resposta do servidor.';
+              showToast(errMsg, 'error');
+              reject(new Error(errMsg));
+            }
+          })
+          .withFailureHandler((err) => {
+            hideLoading();
+            const errMsg = err.message || 'Erro inesperado de comunicação com o servidor.';
+            showToast(errMsg, 'error');
+            reject(err);
+          });
+
+        if (payload !== null && payload !== undefined) {
+          runner[methodName](payload);
+        } else {
+          runner[methodName]();
+        }
+      });
+    }
+
+    /* ==========================================================================
+       CARREGAMENTO DE DADOS E RENDERIZAÇÃO
+       ========================================================================== */
+
+    async function loadInitialState() {
+      try {
+        const data = await callServer('apiGetInitialState', null, 'Autenticando sessão com o Google...');
+        
+        if (!data.authenticated) {
+          document.getElementById('user-display-name').textContent = 'Acesso Não Autorizado';
+          document.getElementById('user-role-badge').textContent = 'BLOQUEADO';
+          document.getElementById('user-role-badge').className = 'user-role-tag role-admin';
+          showToast(data.error || 'Acesso negado: sua conta Google não está cadastrada no sistema.', 'error');
+          return;
+        }
+
+        state.authenticated = true;
+        state.user = data.user;
+        state.activePeriod = data.activePeriod;
+        state.queues = data.queues || {};
+
+        if (state.user.militar && state.user.militar.equipe) {
+          state.selectedTeam = state.user.militar.equipe;
+        }
+
+        renderUserInfo();
+        renderKpis();
+        renderRolePermissions();
+        renderTeamQueue();
+        renderChoiceTab();
+
+      } catch (err) {
+        console.error('Erro ao inicializar estado:', err);
+      }
+    }
+
+    function renderUserInfo() {
+      const user = state.user;
+      if (!user) return;
+
+      const nameElem = document.getElementById('user-display-name');
+      const badgeElem = document.getElementById('user-role-badge');
+
+      if (user.militar) {
+        nameElem.textContent = `${user.militar.graduacao} ${user.militar.nome_guerra} (${user.militar.equipe})`;
+      } else {
+        nameElem.textContent = user.email;
+      }
+
+      badgeElem.textContent = user.perfil;
+      badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
+    }
+
+    function renderRolePermissions() {
+      const perfil = state.user.perfil;
+      const tabGestor = document.getElementById('btn-tab-gestor');
+      const tabAdmin = document.getElementById('btn-tab-admin');
+
+      if (perfil === 'ADMIN') {
+        tabGestor.style.display = 'block';
+        tabAdmin.style.display = 'block';
+      } else if (perfil === 'GESTOR') {
+        tabGestor.style.display = 'block';
+        tabAdmin.style.display = 'none';
+      } else {
+        tabGestor.style.display = 'none';
+        tabAdmin.style.display = 'none';
+      }
+    }
+
+    function renderKpis() {
+      const p = state.activePeriod;
+      const m = state.user ? state.user.militar : null;
+      const myTeam = m ? m.equipe : state.selectedTeam;
+      const queue = state.queues[myTeam];
+
+      // KPI Competência
+      document.getElementById('kpi-competencia').textContent = p ? p.competencia : 'Nenhum';
+      document.getElementById('kpi-periodo-status').textContent = p ? `Período ${p.status}` : 'Sem período aberto';
+
+      // KPI Minha Equipe
+      document.getElementById('kpi-equipe').textContent = myTeam || '--';
+      document.getElementById('kpi-antiguidade').textContent = m ? `Antiguidade Oficial: ${m.ordem_antiguidade}º` : 'Perfil Administrativo';
+
+      // KPI Minha Situação
+      const myRow = (queue && m) ? queue.fila.find(f => f.militar_id === m.militar_id) : null;
+      const statusElem = document.getElementById('kpi-status-escolha');
+      const dataFolgaElem = document.getElementById('kpi-data-folga');
+
+      if (myRow) {
+        if (myRow.status_fila === 'ESCOLHIDO') {
+          statusElem.textContent = 'FOLGA CONFIRMADA';
+          statusElem.style.color = 'var(--status-success)';
+          dataFolgaElem.textContent = `Plantão: ${formatDate(myRow.data_folga)}`;
+          state.myChoice = myRow;
+        } else if (myRow.status_fila === 'SUA_VEZ') {
+          statusElem.textContent = 'É A SUA VEZ!';
+          statusElem.style.color = 'var(--brand-red)';
+          dataFolgaElem.textContent = 'Selecione uma data disponível';
+          state.myChoice = null;
+        } else if (myRow.status_fila === 'PASSOU') {
+          statusElem.textContent = 'VEZ PASSADA';
+          statusElem.style.color = 'var(--status-warning)';
+          dataFolgaElem.textContent = 'Prazo expirado ou justificado';
+        } else {
+          statusElem.textContent = 'AGUARDANDO VEZ';
+          statusElem.style.color = 'var(--text-secondary)';
+          dataFolgaElem.textContent = 'Aguarde os militares mais antigos';
+        }
+      } else {
+        statusElem.textContent = '--';
+        dataFolgaElem.textContent = 'Sem vínculo funcional';
+      }
+
+      // KPI Vagas Restantes
+      if (queue) {
+        document.getElementById('kpi-vagas-restantes').textContent = `${queue.vagas_restantes} vagas`;
+        document.getElementById('kpi-proximo-vez').textContent = queue.proximo_da_vez 
+          ? `Vez de: ${queue.proximo_da_vez.graduacao} ${queue.proximo_da_vez.nome_guerra}` 
+          : 'Todos da equipe já escolheram';
+      }
+    }
+
+    function renderChoiceTab() {
+      const m = state.user ? state.user.militar : null;
+      if (!m) {
+        document.getElementById('choice-banner-title').textContent = 'Perfil de Acesso Administrativo';
+        document.getElementById('choice-banner-desc').textContent = 'Use as abas Painel Operacional ou Administração para gerenciar as equipes.';
+        document.getElementById('btn-confirmar-escolha').style.display = 'none';
+        return;
+      }
+
+      const queue = state.queues[m.equipe];
+      if (!queue) return;
+
+      const myRow = queue.fila.find(f => f.militar_id === m.militar_id);
+      const isMyTurn = (myRow && myRow.status_fila === 'SUA_VEZ');
+      const hasChosen = (myRow && myRow.status_fila === 'ESCOLHIDO');
+
+      const banner = document.getElementById('choice-banner');
+      const bannerTitle = document.getElementById('choice-banner-title');
+      const bannerDesc = document.getElementById('choice-banner-desc');
+      const btnConfirmar = document.getElementById('btn-confirmar-escolha');
+      const confirmedBox = document.getElementById('confirmed-choice-box');
+
+      if (hasChosen) {
+        banner.style.display = 'none';
+        confirmedBox.style.display = 'block';
+        document.getElementById('confirmed-date-display').textContent = formatDate(myRow.data_folga);
+      } else {
+        confirmedBox.style.display = 'none';
+        banner.style.display = 'flex';
+
+        if (isMyTurn) {
+          banner.className = 'turn-banner';
+          bannerTitle.innerHTML = '<span class="pulse-indicator"></span> É A SUA VEZ DE ESCOLHER!';
+          bannerDesc.textContent = 'Você é o militar mais antigo pendente na sua equipe. Escolha uma das datas de plantão abaixo.';
+          btnConfirmar.style.display = 'inline-flex';
+          btnConfirmar.disabled = !state.selectedDate;
+        } else {
+          banner.className = 'turn-banner waiting';
+          bannerTitle.innerHTML = 'Aguardando sua vez na fila...';
+          const prox = queue.proximo_da_vez;
+          bannerDesc.textContent = prox 
+            ? `Atualmente a vez é de: ${prox.graduacao} ${prox.nome_guerra} (${prox.posicao}º da fila).` 
+            : 'Fila aguardando liberação.';
+          btnConfirmar.disabled = true;
+        }
+      }
+
+      renderDateGrid(queue, isMyTurn);
+    }
+
+    function renderDateGrid(queue, isMyTurn) {
+      const container = document.getElementById('eligible-dates-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const allDates = [...queue.datas_disponiveis, ...queue.datas_ocupadas].sort();
+
+      allDates.forEach(dateStr => {
+        const isOccupied = queue.datas_ocupadas.includes(dateStr);
+        const card = document.createElement('div');
+        const isSelected = (state.selectedDate === dateStr);
+
+        card.className = `date-card ${isOccupied ? 'disabled' : ''} ${isSelected ? 'selected' : ''}`;
+        
+        const dateObj = new Date(dateStr + 'T12:00:00Z');
+        const dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' }).replace('.', '');
+        const dayNumber = dateStr.split('-')[2];
+
+        card.innerHTML = `
+          <div class="date-day-name">${dayOfWeek}</div>
+          <div class="date-number">${dayNumber}</div>
+          <span class="date-status-tag ${isOccupied ? 'date-taken' : 'date-available'}">
+            ${isOccupied ? 'Ocupada' : 'Disponível'}
+          </span>
+        `;
+
+        if (!isOccupied && isMyTurn) {
+          card.onclick = () => {
+            state.selectedDate = dateStr;
+            document.querySelectorAll('.date-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            document.getElementById('btn-confirmar-escolha').disabled = false;
+          };
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function renderTeamQueue() {
+      const team = state.selectedTeam;
+      const queue = state.queues[team];
+      const tbody = document.getElementById('queue-table-body');
+      if (!tbody) return;
+
+      if (!queue || !queue.fila || queue.fila.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar cadastrado para a ${team}.</td></tr>`;
+        return;
+      }
+
+      const myMilitarId = state.user && state.user.militar ? state.user.militar.militar_id : null;
+
+      tbody.innerHTML = queue.fila.map(item => {
+        const isMe = (myMilitarId === item.militar_id);
+        const rowClass = isMe ? 'highlight-my-row' : '';
+        
+        let badgeHtml = '';
+        if (item.status_fila === 'SUA_VEZ') {
+          badgeHtml = '<span class="status-badge badge-sua-vez">● É A VEZ</span>';
+        } else if (item.status_fila === 'ESCOLHIDO') {
+          badgeHtml = '<span class="status-badge badge-escolhido">✓ Escolhido</span>';
+        } else if (item.status_fila === 'PASSOU') {
+          badgeHtml = '<span class="status-badge badge-passou">⟳ Passou</span>';
+        } else {
+          badgeHtml = '<span class="status-badge badge-aguardando">Aguardando</span>';
+        }
+
+        return `
+          <tr class="${rowClass}">
+            <td style="font-weight: 700;">${item.posicao}º</td>
+            <td>${item.graduacao}</td>
+            <td><strong>${item.nome_guerra}</strong> ${isMe ? '<span style="color: var(--brand-red); font-size: 0.75rem;">(Você)</span>' : ''}</td>
+            <td>${badgeHtml}</td>
+            <td>${item.data_folga ? formatDate(item.data_folga) : '--'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Atualiza também o campo de militar da vez no formulário do gestor
+      const prox = queue.proximo_da_vez;
+      const nameInput = document.getElementById('pass-turn-military-name');
+      const idInput = document.getElementById('pass-turn-military-id');
+      if (nameInput && idInput) {
+        if (prox) {
+          nameInput.value = `${prox.graduacao} ${prox.nome_guerra} (${prox.posicao}º da ${team})`;
+          idInput.value = prox.militar_id;
+        } else {
+          nameInput.value = 'Todos já escolheram';
+          idInput.value = '';
+        }
+      }
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr || isoStr === 'PASSOU_A_VEZ') return isoStr || '--';
+      const parts = isoStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return isoStr;
+    }
+
+    /* ==========================================================================
+       EVENT LISTENERS E AÇÕES DE USUÁRIO
+       ========================================================================== */
+
+    function setupTabNavigation() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+          btn.classList.add('active');
+          const target = document.getElementById(btn.getAttribute('data-tab'));
+          if (target) target.classList.add('active');
+        });
+      });
+    }
+
+    function setupEventListeners() {
+      // Seletor de Equipes na aba de Fila
+      document.querySelectorAll('#team-selector-buttons button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#team-selector-buttons button').forEach(b => b.classList.remove('active-team'));
+          btn.classList.add('active-team');
+          state.selectedTeam = btn.getAttribute('data-team');
+          renderTeamQueue();
+        });
+      });
+
+      // Botão Atualizar Fila
+      document.getElementById('btn-refresh-queue')?.addEventListener('click', async () => {
+        if (!state.activePeriod) return;
+        try {
+          const updated = await callServer('apiGetTeamQueue', state.selectedTeam, 'Atualizando lista...');
+          state.queues[state.selectedTeam] = updated;
+          renderTeamQueue();
+          showToast('Fila atualizada com sucesso!', 'info');
+        } catch (err) {}
+      });
+
+      // Botão Confirmar Escolha -> Abre Modal de Confirmação
+      document.getElementById('btn-confirmar-escolha')?.addEventListener('click', () => {
+        if (!state.selectedDate) return;
+        document.getElementById('modal-choice-date-text').textContent = formatDate(state.selectedDate);
+        document.getElementById('modal-confirm-choice').classList.add('active');
+      });
+
+      document.getElementById('btn-modal-cancel-choice')?.addEventListener('click', () => {
+        document.getElementById('modal-confirm-choice').classList.remove('active');
+      });
+
+      // Submissão Atômica com Idempotência
+      document.getElementById('btn-modal-submit-choice')?.addEventListener('click', async () => {
+        if (state.isSubmitting) return;
+        state.isSubmitting = true;
+
+        const payload = {
+          periodo_id: state.activePeriod.periodo_id,
+          militar_id: state.user.militar.militar_id,
+          data_folga: state.selectedDate,
+          idempotency_key: generateUuid()
+        };
+
+        try {
+          const res = await callServer('apiMakeChoice', payload, 'Validando e gravando escolha de folga no servidor...');
+          document.getElementById('modal-confirm-choice').classList.remove('active');
+          showToast(res.mensagem || 'Folga confirmada com sucesso!', 'success');
+          await loadInitialState();
+        } catch (err) {
+          // Erro já exibido pelo toast
+        } finally {
+          state.isSubmitting = false;
+        }
+      });
+
+      // Cancelamento de Escolha
+      document.getElementById('btn-cancelar-escolha')?.addEventListener('click', () => {
+        document.getElementById('modal-cancel-choice').classList.add('active');
+      });
+
+      document.getElementById('btn-modal-close-cancel')?.addEventListener('click', () => {
+        document.getElementById('modal-cancel-choice').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-cancel')?.addEventListener('click', async () => {
+        const just = document.getElementById('cancel-choice-justification').value.trim();
+        if (!just) {
+          showToast('Informe a justificativa do cancelamento.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiCancelChoice', {
+            escolha_id: state.myChoice.escolha_id || state.myChoice.id,
+            justificativa: just
+          }, 'Cancelando folga e auditando operação...');
+          
+          document.getElementById('modal-cancel-choice').classList.remove('active');
+          showToast('Folga cancelada com sucesso. Fila reaberta.', 'success');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // Passagem de Vez pelo Gestor
+      document.getElementById('form-pass-turn')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const milId = document.getElementById('pass-turn-military-id').value;
+        const just = document.getElementById('pass-turn-justification').value.trim();
+
+        if (!milId) {
+          showToast('Nenhum militar pendente na fila desta equipe.', 'error');
+          return;
+        }
+        if (!just) {
+          showToast('A justificativa é obrigatória para a passagem de vez.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiPassTurn', {
+            periodo_id: state.activePeriod.periodo_id,
+            militar_id: milId,
+            justificativa: just
+          }, 'Registrando passagem de vez no servidor...');
+
+          showToast('Passagem de vez registrada com sucesso!', 'success');
+          document.getElementById('pass-turn-justification').value = '';
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // Ações Administrativas: Diagnóstico
+      document.getElementById('btn-admin-diagnostics')?.addEventListener('click', async () => {
+        try {
+          const diag = await callServer('apiAdminRunDiagnostics', null, 'Executando diagnóstico de integridade no banco...');
+          const box = document.getElementById('diagnostics-summary-box');
+          const isHealthy = diag.status === 'HEALTHY';
+          
+          box.innerHTML = `
+            <div style="font-weight: 700; color: ${isHealthy ? 'var(--status-success)' : 'var(--status-danger)'};">
+              Status Geral: ${diag.status} (${diag.totalIssues} problemas encontrados)
+            </div>
+            <div style="margin-top: 0.35rem; font-size: 0.8rem;">
+              Militares: ${diag.recordCounts.MILITARES || 0} | Escolhas: ${diag.recordCounts.ESCOLHAS || 0} | Auditoria: ${diag.recordCounts.AUDITORIA || 0}
+            </div>
+          `;
+          showToast(`Diagnóstico concluído: ${diag.status}`, isHealthy ? 'success' : 'error');
+        } catch (err) {}
+      });
+
+      // Ações Administrativas: Backup
+      document.getElementById('btn-admin-backup')?.addEventListener('click', async () => {
+        try {
+          const snap = await callServer('apiAdminRunBackup', null, 'Gerando cópia de segurança em snapshot...');
+          showToast(`Backup concluído! Total de ${snap.totalRecords} registros protegidos.`, 'success');
+        } catch (err) {}
+      });
+
+      // Ações Administrativas: Recarregar Trilha de Auditoria
+      document.getElementById('btn-refresh-audit')?.addEventListener('click', async () => {
+        try {
+          const logs = await callServer('apiAdminGetAuditLogs', 50, 'Consultando registros imutáveis de auditoria...');
+          const tbody = document.getElementById('audit-table-body');
+          if (!tbody) return;
+
+          if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 1.5rem;">Nenhum evento registrado.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = logs.map(l => `
+            <tr>
+              <td style="font-size: 0.8rem;">${new Date(l.data_hora).toLocaleString('pt-BR')}</td>
+              <td><code>${l.usuario_autenticado_email}</code></td>
+              <td><strong>${l.acao}</strong></td>
+              <td>${l.entidade}</td>
+              <td><span class="status-badge ${l.resultado === 'SUCESSO' ? 'badge-escolhido' : 'badge-sua-vez'}">${l.resultado}</span></td>
+              <td style="font-size: 0.8rem; color: var(--text-secondary);">${l.justificativa || '--'}</td>
+            </tr>
+          `).join('');
+          showToast('Trilha de auditoria carregada.', 'info');
+        } catch (err) {}
+      });
+    }
+
+    return {
+      init: init
+    };
+  })();
+
+  // Inicializa o aplicativo após carregamento do DOM
+  document.addEventListener('DOMContentLoaded', () => {
+    App.init();
+  });
+</script>
