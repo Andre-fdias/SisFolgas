@@ -374,8 +374,9 @@
 
       renderDateGrid(queue, isMyTurn && isWindowOpen);
     }
+  }
 
-    function renderDateGrid(queue, isInteractive) {
+  function renderDateGrid(queue, isInteractive) {
       const container = document.getElementById('eligible-dates-container');
       if (!container) return;
       container.innerHTML = '';
@@ -1003,7 +1004,11 @@
   })();
 
   // Inicializa o aplicativo após carregamento do DOM
-  document.addEventListener('DOMContentLoaded', () => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      App.init();
+    });
+  } else {
     App.init();
-  });
+  }
 </script>

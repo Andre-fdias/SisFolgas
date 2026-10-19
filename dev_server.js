@@ -165,69 +165,74 @@ const server = http.createServer((req, res) => {
         </div>
 
         <script>
-          // Ponte do google.script.run para o servidor local
-          window.google = {
-            script: {
-              run: {
-                _successHandler: () => {},
-                _failureHandler: () => {},
+          // Ponte robusta e concorrente do google.script.run para o servidor local
+          (function() {
+            const exposedMethods = [
+              'apiGetInitialState',
+              'apiGetTeamQueue',
+              'apiMakeChoice',
+              'apiCancelChoice',
+              'apiPassTurn',
+              'apiAdminSaveMilitary',
+              'apiAdminCreatePeriod',
+              'apiAdminChangePeriodStatus',
+              'apiAdminGetOperationalReport',
+              'apiAdminGetAuditLogs',
+              'apiAdminRunDiagnostics',
+              'apiAdminRunBackup',
+              'apiGrantCredit',
+              'apiRegisterLeave',
+              'apiRequestSwap',
+              'apiApproveSwap',
+              'apiChangeChoiceToAvailableDate',
+              'apiRequestAccumulateLeave',
+              'apiAdminSetNaoFazJus',
+              'apiAdminApproveAccumulateLeave',
+              'apiAdminRejectAccumulateLeave',
+              'apiAdminGetPendingAccumulateRequests'
+            ];
+
+            function createRunner(successFn, failureFn) {
+              const runner = {
                 withSuccessHandler: function(fn) {
-                  this._successHandler = fn;
-                  return this;
+                  return createRunner(fn, failureFn);
                 },
                 withFailureHandler: function(fn) {
-                  this._failureHandler = fn;
-                  return this;
+                  return createRunner(successFn, fn);
                 }
-              }
+              };
+
+              exposedMethods.forEach(method => {
+                runner[method] = function(payload) {
+                  fetch('/api/rpc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: method, payload: payload })
+                  })
+                  .then(r => r.json())
+                  .then(res => {
+                    if (res && res.success) {
+                      if (typeof successFn === 'function') successFn(res);
+                    } else {
+                      const err = new Error(res && res.error ? res.error.message : 'Falha na requisição');
+                      if (typeof failureFn === 'function') failureFn(err);
+                    }
+                  })
+                  .catch(err => {
+                    if (typeof failureFn === 'function') failureFn(err);
+                  });
+                };
+              });
+
+              return runner;
             }
-          };
 
-          // Adiciona os métodos expostos na ponte
-          const exposedMethods = [
-            'apiGetInitialState',
-            'apiGetTeamQueue',
-            'apiMakeChoice',
-            'apiCancelChoice',
-            'apiPassTurn',
-            'apiAdminSaveMilitary',
-            'apiAdminCreatePeriod',
-            'apiAdminChangePeriodStatus',
-            'apiAdminGetOperationalReport',
-            'apiAdminGetAuditLogs',
-            'apiAdminRunDiagnostics',
-            'apiAdminRunBackup',
-            'apiGrantCredit',
-            'apiRegisterLeave',
-            'apiRequestSwap',
-            'apiApproveSwap',
-            'apiChangeChoiceToAvailableDate',
-            'apiRequestAccumulateLeave',
-            'apiAdminSetNaoFazJus',
-            'apiAdminApproveAccumulateLeave',
-            'apiAdminRejectAccumulateLeave',
-            'apiAdminGetPendingAccumulateRequests'
-          ];
-
-          exposedMethods.forEach(method => {
-            window.google.script.run[method] = function(payload) {
-              const self = window.google.script.run;
-              fetch('/api/rpc', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: method, payload: payload })
-              })
-              .then(r => r.json())
-              .then(data => {
-                if (data.success) {
-                  self._successHandler(data);
-                } else {
-                  self._failureHandler(new Error(data.error ? data.error.message : 'Falha na requisição'));
-                }
-              })
-              .catch(err => self._failureHandler(err));
+            window.google = {
+              script: {
+                run: createRunner(() => {}, () => {})
+              }
             };
-          });
+          })();
 
           // Listener do seletor de usuário e botão de alternância de janela
           document.addEventListener('DOMContentLoaded', () => {
