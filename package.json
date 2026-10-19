@@ -5,7 +5,14 @@
   "main": "Code.js",
   "scripts": {
     "start": "node dev_server.js",
-    "test": "node --test tests/*.js"
+    "test": "node --test tests/*.js",
+    "login": "npx @google/clasp login",
+    "push": "npx @google/clasp push",
+    "deploy": "npx @google/clasp deploy",
+    "open": "npx @google/clasp open"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
   },
   "keywords": [
     "google-apps-script",

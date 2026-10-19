@@ -60,28 +60,67 @@ npm test
 
 ---
 
-## 🚀 Como Vincular à Planilha do Google e Implantar
+## ⚡ Implantação Automática via CLASP (Sem Copiar e Colar)
 
-### 1. Criar ou Vincular a Planilha Privada
-Abra a sua planilha no Google Sheets (por exemplo, a planilha `SisFolgas` criada):
-1. No menu superior da planilha, clique em **Extensões** > **Apps Script**.
-2. Cole ou faça push do código deste repositório para o projeto.
-3. Se o script for do tipo *container-bound* (aberto a partir da planilha), ele se conecta automaticamente via `SpreadsheetApp.getActiveSpreadsheet()`.
-4. Se for um script autônomo (*standalone*), adicione o ID da planilha nas Propriedades do Script:
-   - Chave: `SPREADSHEET_ID`
-   - Valor: `[ID_DA_PLANILHA]`
+O projeto está configurado com o **CLASP** (*Command Line Apps Script Projects*), a ferramenta oficial da Google para sincronização e deploy direto pelo terminal ou CI/CD.
 
-### 2. Inicializar o Banco de Dados e os Dados de Teste
-No editor do Google Apps Script:
-1. Abra `Repository.gs`, selecione a função `initializeSchema` e clique em **Executar**.
-   - As **9 abas** serão criadas com formatação e cabeçalhos oficiais.
-2. Abra `SeedData.gs`, selecione a função `populateTestData` e clique em **Executar**.
-   - Carregará 21 militares fictícios distribuídos nas Equipes A, B e C com antiguidades de 1 a 7, além de registrar o e-mail administrador.
+### Pré-requisito (Única vez)
+1. Acesse suas configurações de usuário do Google Apps Script: [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings)
+2. Ative a opção: **Google Apps Script API** (altere a chave para **ATIVADO / ON**).
 
-### 3. Publicar o Web App
-1. Clique em **Implantar** > **Nova Implantação**.
-2. Tipo: **Aplicativo da Web**.
-3. Configuração de Acesso:
-   - **Executar como:** `Eu (seu-email@gmail.com)`
-   - **Quem tem acesso:** `Qualquer pessoa com uma Conta do Google`
-4. Conceda as autorizações e compartilhe a URL gerada com a tropa.
+### Passo 1: Autenticar sua Conta Google
+No terminal da pasta do projeto, execute:
+```bash
+npm run login
+```
+*Uma janela do navegador será aberta para você autorizar o Google Apps Script CLI.*
+
+### Passo 2: Vincular ao seu Projeto do Apps Script
+Crie o arquivo `.clasp.json` na raiz do projeto com o `scriptId` do seu projeto do Apps Script (encontrado em *Configurações do Projeto* > *ID do Script*):
+```json
+{
+  "scriptId": "SEU_SCRIPT_ID_DO_APPS_SCRIPT_AQUI"
+}
+```
+*(Ou se preferir criar um novo script autônomo diretamente pelo terminal: `npx @google/clasp create --type webapp --title "SisFolgas CBM"`)*.
+
+### Passo 3: Enviar Todos os Arquivos (Push Direto)
+Para enviar todo o código (backend e frontend) de uma só vez:
+```bash
+npm run push
+```
+*O clasp enviará todos os arquivos `.js` e `.html` para o editor do Google em segundos, ignorando automaticamente testes e arquivos locais conforme o `.claspignore`.*
+
+### Passo 4: Criar Nova Versão de Deploy (Publicar Web App)
+Para publicar ou atualizar o aplicativo da web diretamente:
+```bash
+npm run deploy
+```
+
+Para abrir o editor no navegador:
+```bash
+npm run open
+```
+
+---
+
+## 🔄 CI/CD 100% Automático via GitHub Actions (Deploy no `git push`)
+
+O repositório já inclui o workflow `.github/workflows/deploy.yml`. Para que cada `git push origin main` execute os testes e faça o deploy automático no Google Apps Script:
+
+1. Acesse o seu repositório no GitHub: **Settings** > **Secrets and variables** > **Actions**.
+2. Adicione os dois segredos:
+   - `SCRIPT_ID`: O ID do seu projeto no Apps Script.
+   - `CLASPRC_JSON`: O conteúdo do arquivo `~/.clasprc.json` (gerado após você rodar `npm run login` na sua máquina).
+3. A partir de agora, qualquer `git push` executará a suíte de testes (68 testes) e, se todos passarem, fará o push e deploy automaticamente no Google Apps Script!
+
+---
+
+## 🚀 Inicialização do Banco na Planilha e Primeiro Acesso
+
+1. No editor do Apps Script (ou via `npm run open`), selecione o arquivo `Repository.js`, aponte para a função `initializeSchema` e clique em **Executar**.
+   - As **9 abas** do banco de dados serão criadas e formatadas na planilha.
+2. Selecione `SeedData.js`, aponte para `populateTestData` e clique em **Executar**.
+   - Criará os 21 militares de teste e registrará o administrador.
+3. Se o script não for vinculado (*container-bound* à planilha), adicione o ID da planilha em **Configurações do Projeto** > **Propriedades do Script** com a chave `SPREADSHEET_ID`.
+

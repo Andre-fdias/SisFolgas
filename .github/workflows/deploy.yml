@@ -1,0 +1,49 @@
+name: CI/CD SisFolgas - Teste & Deploy Automático
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test_and_deploy:
+    name: Executar Testes e Implantar no Google Apps Script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Executar Testes Automatizados (68 Testes)
+        run: node --test tests/*.js
+
+      - name: Instalar Google Clasp CLI
+        run: npm install -g @google/clasp
+
+      - name: Configurar Credenciais do Clasp
+        if: env.CLASPRC_JSON != ''
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+
+      - name: Configurar Script ID do Projeto
+        if: env.SCRIPT_ID != ''
+        run: |
+          echo "{\"scriptId\":\"$SCRIPT_ID\"}" > .clasp.json
+        env:
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+
+      - name: Enviar Código para o Google Apps Script (Push)
+        if: env.SCRIPT_ID != '' && env.CLASPRC_JSON != ''
+        run: clasp push --force
+
+      - name: Criar Nova Versão de Implantação (Deploy)
+        if: env.SCRIPT_ID != '' && env.CLASPRC_JSON != ''
+        run: clasp deploy --description "Deploy automático via GitHub Actions - commit ${{ github.sha }}"

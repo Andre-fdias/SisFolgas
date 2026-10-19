@@ -1,0 +1,12 @@
+# Arquivos e pastas locais que NÃO devem ser enviados para o Google Apps Script
+node_modules/**
+tests/**
+.git/**
+.github/**
+dev_server.js
+package.json
+package-lock.json
+README.md
+.gitignore
+.claspignore
+*.log
