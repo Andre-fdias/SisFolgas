@@ -223,7 +223,16 @@ const Config = {
   CHOICE_STATUS: {
     ATIVA: 'ATIVA',
     CANCELADA: 'CANCELADA',
-    SUBSTITUIDA: 'SUBSTITUIDA'
+    SUBSTITUIDA: 'SUBSTITUIDA',
+    PENDENTE_VALIDACAO: 'PENDENTE_VALIDACAO' // Para solicitações que exigem aprovação do Admin (ex: Acúmulo)
+  },
+
+  // Motivos regulamentares em que o militar NÃO FAZ JUS à folga
+  NAO_FAZ_JUS_MOTIVOS: {
+    FERIAS: 'Férias Regulamentares',
+    LICENCA_PREMIO: 'Licença-Prêmio',
+    CONVALESCENCA: 'Convalescença',
+    LTS: 'Licença para Tratamento de Saúde (LTS)'
   },
 
   // Estados dos Créditos
@@ -257,13 +266,16 @@ const Config = {
     ERRO_SISTEMA: 'ERRO_SISTEMA'
   },
 
-  // Padrões operacionais padrão (podem ser customizados em CONFIGURACOES)
+  // Padrões operacionais regulamentares
   DEFAULTS: {
     LOCK_TIMEOUT_MS: 10000, // 10 segundos de espera máxima para lock
     CHOICE_WINDOW_HOURS: 24, // Janela recomendada de tempo por militar
     MAX_CHOICES_PER_PERIOD: 1, // 1 folga por competência
     SCALE_TYPE: '24x48',
-    TEAMS: ['Equipe A', 'Equipe B', 'Equipe C']
+    TEAMS: ['Equipe A', 'Equipe B', 'Equipe C'],
+    // Janela regulamentar mensal de escolhas e trocas:
+    CHOICE_WINDOW_START_DAY: 1,  // Início no dia 01
+    CHOICE_WINDOW_END_DAY: 16    // Fim no dia 16. Do dia 17 em diante, o sistema bloqueia edição!
   }
 };
 

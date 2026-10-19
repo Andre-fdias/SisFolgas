@@ -30,6 +30,16 @@
   <!-- Main Container -->
   <main class="main-wrapper">
 
+    <!-- Banner da Janela Oficial de Escolha e Bloqueio -->
+    <div id="window-status-banner" class="window-banner window-open">
+      <div class="window-banner-icon" id="window-banner-icon">📅</div>
+      <div class="window-banner-content">
+        <strong id="window-banner-title">Janela Oficial de Escolha: 01 a 16 de cada mês</strong>
+        <span id="window-banner-subtext">Do dia 17 até o final do mês, o sistema fica bloqueado para edição (somente leitura).</span>
+      </div>
+      <div class="window-banner-tag tag-open" id="window-banner-tag">Janela Aberta</div>
+    </div>
+
     <!-- KPI Metric Cards -->
     <section class="kpi-grid">
       <div class="kpi-card">
@@ -77,16 +87,38 @@
             A escolha de folga obedece à ordem oficial de antiguidade cadastrada na equipe.
           </p>
         </div>
-        <div id="choice-banner-actions">
+        <div id="choice-banner-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button class="btn btn-primary" id="btn-confirmar-escolha" disabled>Confirmar Escolha de Folga</button>
+          <button class="btn btn-secondary" id="btn-solicitar-acumulo" style="display: none;">Acumular Folga (Outro Mês)</button>
         </div>
       </div>
 
       <!-- Detalhes da Escolha Confirmada (se houver) -->
       <div id="confirmed-choice-box" style="display: none; background: var(--bg-card); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
-        <h3 style="color: var(--status-success); margin-bottom: 0.5rem;">Sua folga está confirmada e homologada!</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Data do seu plantão dispensado: <strong id="confirmed-date-display" style="color: #fff; font-size: 1.1rem;">--</strong></p>
-        <button class="btn btn-danger" id="btn-cancelar-escolha">Solicitar Cancelamento Justificado</button>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h3 style="color: var(--status-success); margin-bottom: 0.5rem;">Sua folga está confirmada e homologada!</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Data do seu plantão dispensado: <strong id="confirmed-date-display" style="color: #fff; font-size: 1.15rem;">--</strong></p>
+          </div>
+          <button class="btn btn-danger" id="btn-cancelar-escolha" style="font-size: 0.82rem;">Solicitar Cancelamento Justificado</button>
+        </div>
+
+        <!-- Área de Trocas e Permutas (Liberada após todos da equipe escolherem) -->
+        <div id="swap-phase-section" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div>
+              <strong id="swap-phase-title" style="font-size: 0.95rem; color: #fff;">Fase de Trocas e Permutas</strong>
+              <p id="swap-phase-subtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Liberada exclusivamente entre os dias 01 e 16 após todos os militares da equipe escolherem.
+              </p>
+            </div>
+            <div id="swap-phase-badge" class="status-badge badge-aguardando">Aguardando Equipe</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="swap-action-buttons">
+            <button class="btn btn-secondary" id="btn-abrir-troca-vaga" disabled>🔄 Trocar por Outro Dia Vago</button>
+            <button class="btn btn-secondary" id="btn-abrir-permuta" disabled>👥 Permutar com Colega</button>
+          </div>
+        </div>
       </div>
 
       <!-- Grid de Datas de Plantão da Equipe -->
@@ -204,6 +236,76 @@
             </div>
             <button type="submit" class="btn btn-secondary" id="btn-submit-leave">Registrar Afastamento</button>
           </form>
+        <!-- Registro de Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS) -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--brand-amber);">Marcar "Não Faz Jus" (Pula a Vez)</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Militares em férias, licença-prêmio, convalescença ou LTS não fazem jus à folga. O registro pula a escolha diretamente para o próximo.
+          </p>
+
+          <form id="form-nao-faz-jus">
+            <div class="form-group">
+              <label class="form-label">Equipe</label>
+              <select class="form-select" id="nao-faz-jus-team-select">
+                <option value="Equipe A">Equipe A</option>
+                <option value="Equipe B">Equipe B</option>
+                <option value="Equipe C">Equipe C</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Militar</label>
+              <select class="form-select" id="nao-faz-jus-militar-select">
+                <option value="">Carregando militares...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Motivo Legal / Regulamentar</label>
+              <select class="form-select" id="nao-faz-jus-motivo-select">
+                <option value="FERIAS">Férias Regulamentares</option>
+                <option value="LICENCA_PREMIO">Licença-Prêmio</option>
+                <option value="CONVALESCENCA">Convalescença</option>
+                <option value="LTS">Licença para Tratamento de Saúde (LTS)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Justificativa / Portaria / Documento</label>
+              <textarea class="form-textarea" id="nao-faz-jus-justificativa" rows="2" placeholder="Ex: Publicado no Boletim Geral nº 45/2026."></textarea>
+            </div>
+            <button type="submit" class="btn btn-secondary" style="border-color: rgba(245, 158, 11, 0.5); color: var(--brand-amber);" id="btn-submit-nao-faz-jus">Marcar Não Faz Jus e Pular a Vez</button>
+          </form>
+        </div>
+
+        <!-- Homologação Administrativa de Acúmulo de Folgas -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; grid-column: 1 / -1;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="font-family: var(--font-heading); margin-bottom: 0.25rem; color: #c084fc;">Homologação de Acúmulo de Folga para Outro Mês</h3>
+              <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                Solicitações feitas por militares que optaram por acumular a folga em vez de usufruir neste mês.
+              </p>
+            </div>
+            <button class="btn btn-secondary" id="btn-refresh-pending-accumulate" style="font-size: 0.82rem;">Atualizar Solicitações</button>
+          </div>
+
+          <div class="table-container">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>Militar</th>
+                  <th>Equipe</th>
+                  <th>Competência</th>
+                  <th>Justificativa do Militar</th>
+                  <th>Data da Solicitação</th>
+                  <th style="width: 180px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pending-accumulate-table-body">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma solicitação de acúmulo pendente no momento.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
@@ -305,6 +407,125 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-modal-close-cancel">Fechar</button>
         <button class="btn btn-danger" id="btn-modal-confirm-cancel">Confirmar Cancelamento</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Troca por Dia Vago -->
+  <div class="modal-overlay" id="modal-troca-vaga">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Trocar por Outro Dia Vago</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+          Como todos os militares da sua equipe já realizaram a escolha inicial, você pode transferir sua folga para qualquer outro dia disponível do plantão.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Sua Folga Atual</label>
+          <input type="text" class="form-input" id="troca-vaga-atual" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Selecione o Novo Dia Disponível</label>
+          <select class="form-select" id="troca-vaga-select">
+            <option value="">Carregando vagas disponíveis...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Justificativa da Troca (Opcional)</label>
+          <textarea class="form-textarea" id="troca-vaga-justificativa" rows="2" placeholder="Motivo operacional ou pessoal..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-troca-vaga">Cancelar</button>
+        <button class="btn btn-primary" id="btn-modal-confirm-troca-vaga">Efetivar Troca de Dia</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Permuta Direta entre Militares -->
+  <div class="modal-overlay" id="modal-permuta-militar">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Permuta de Folga entre Militares</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+          Troca direta de datas entre você e outro militar da mesma prontidão que já tenha realizado a escolha.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Sua Folga Atual</label>
+          <input type="text" class="form-input" id="permuta-minha-data" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Selecione o Militar para Troca</label>
+          <select class="form-select" id="permuta-colega-select">
+            <option value="">Selecione um colega da equipe...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Folga do Colega (a receber)</label>
+          <input type="text" class="form-input" id="permuta-colega-data" readonly placeholder="Selecione um militar acima...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Justificativa da Permuta</label>
+          <textarea class="form-textarea" id="permuta-justificativa" rows="2" placeholder="Acordo mútuo entre as partes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-permuta">Cancelar</button>
+        <button class="btn btn-primary" id="btn-modal-confirm-permuta">Solicitar Permuta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Solicitação de Acúmulo de Folga -->
+  <div class="modal-overlay" id="modal-solicitar-acumulo">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="color: #c084fc;">Acumular Folga para Outro Mês</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+          Ao optar por <strong>acumular sua folga</strong>, você abre mão de usufruir o plantão dispensado nesta competência. Sua solicitação será enviada para <strong>validação e homologação pelo Administrador</strong>.
+        </p>
+        <div style="background: rgba(147, 51, 234, 0.12); border: 1px solid rgba(147, 51, 234, 0.3); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="font-weight: 700; color: #c084fc; margin-bottom: 0.25rem;">Regra Institucional:</div>
+          <div style="font-size: 0.82rem; color: var(--text-secondary);">
+            Assim que homologado pelo Administrador, será creditada <strong>1 folga em seu saldo</strong> para gozo futuro e sua vez na fila será liberada imediatamente para o próximo militar.
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Justificativa Obrigatória</label>
+          <textarea class="form-textarea" id="acumulo-justificativa" rows="3" placeholder="Informe o motivo da opção por acúmulo da folga para apreciação do Administrador..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-acumulo">Cancelar</button>
+        <button class="btn btn-primary" style="background: linear-gradient(135deg, #7c3aed, #9333ea);" id="btn-modal-confirm-acumulo">Enviar para Homologação</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Recusa de Acúmulo pelo Admin -->
+  <div class="modal-overlay" id="modal-recusar-acumulo">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Recusar Solicitação de Acúmulo</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+          Informe o motivo formal da não homologação do acúmulo de folga.
+        </p>
+        <input type="hidden" id="recusar-acumulo-escolha-id">
+        <div class="form-group">
+          <label class="form-label">Motivo da Recusa</label>
+          <textarea class="form-textarea" id="recusar-acumulo-motivo" rows="3" placeholder="Ex: Necessidade imperiosa de efetivo operacional na competência."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-recusar-acumulo">Cancelar</button>
+        <button class="btn btn-danger" id="btn-modal-confirm-recusar-acumulo">Confirmar Recusa</button>
       </div>
     </div>
   </div>

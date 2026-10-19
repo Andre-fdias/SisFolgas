@@ -37,6 +37,8 @@ global.DiagnosticsService = DiagnosticsService;
 global.BackupService = BackupService;
 global.AdminService = AdminService;
 
+ChoiceService.setBypassWindowCheck(true);
+
 function createMockSpreadsheet() {
   const sheets = {};
   function createMockSheet(name) {

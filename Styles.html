@@ -630,10 +630,98 @@
     to { transform: rotate(360deg); }
   }
 
+  /* Banner da Janela Oficial de Escolha e Bloqueio */
+  .window-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.75rem;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85));
+    border: 1px solid var(--border-subtle);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+  }
+
+  .window-banner.window-open {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.3), rgba(15, 23, 42, 0.85));
+  }
+
+  .window-banner.window-blocked {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.35), rgba(15, 23, 42, 0.9));
+  }
+
+  .window-banner-icon {
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .window-banner-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .window-banner-content strong {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: #fff;
+  }
+
+  .window-banner-content span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .window-banner-tag {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .tag-open {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--status-success);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+  }
+
+  .tag-blocked {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--status-danger);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+  }
+
+  /* Status Badges para Regras Especiais */
+  .badge-nao-faz-jus {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--brand-amber);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+  }
+
+  .badge-acumulo {
+    background: rgba(147, 51, 234, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(147, 51, 234, 0.35);
+  }
+
   /* Responsive Adjustments */
   @media (max-width: 768px) {
     .header-container { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
     .kpi-grid { grid-template-columns: 1fr; }
     .nav-tabs { padding-bottom: 0.25rem; }
+    .window-banner { flex-direction: column; align-items: flex-start; }
   }
 </style>

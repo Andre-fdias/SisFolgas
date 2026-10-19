@@ -25,6 +25,8 @@ global.MilitaryService = MilitaryService;
 global.PeriodService = PeriodService;
 global.ChoiceService = ChoiceService;
 
+ChoiceService.setBypassWindowCheck(true);
+
 function createMockSpreadsheet() {
   const sheets = {};
   function createMockSheet(name) {

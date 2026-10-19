@@ -1,7 +1,7 @@
 <script>
   /**
    * SISTEMA SEGURO DE GERENCIAMENTO E ESCOLHA DE FOLGAS (CBM)
-   * Scripts.html - Controlador reativo do frontend, comunicação assíncrona segura e proteção anti-duplo clique
+   * Scripts.html - Controlador reativo do frontend, comunicação assíncrona segura e regras de negócio
    */
 
   const App = (function() {
@@ -10,6 +10,7 @@
       authenticated: false,
       user: null,
       activePeriod: null,
+      choiceWindow: null,
       queues: {},
       selectedTeam: 'Equipe A',
       selectedDate: null,
@@ -24,6 +25,7 @@
     function init() {
       setupTabNavigation();
       setupEventListeners();
+      setupAdminForms();
       loadInitialState();
     }
 
@@ -73,7 +75,6 @@
     function callServer(methodName, payload = null, loadingMsg = 'Carregando...') {
       return new Promise((resolve, reject) => {
         if (typeof google === 'undefined' || !google.script || !google.script.run) {
-          // Mock mode caso executado fora do Google Apps Script
           console.warn(`[DEV MOCK] Chamada '${methodName}' executada fora do ambiente GAS.`);
           reject(new Error('Ambiente Google Apps Script não detectado.'));
           return;
@@ -129,16 +130,24 @@
         state.user = data.user;
         state.activePeriod = data.activePeriod;
         state.queues = data.queues || {};
+        state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
 
         if (state.user.militar && state.user.militar.equipe) {
           state.selectedTeam = state.user.militar.equipe;
         }
 
         renderUserInfo();
+        renderWindowBanner();
         renderKpis();
         renderRolePermissions();
         renderTeamQueue();
         renderChoiceTab();
+
+        // Se perfil administrativo, carrega solicitações de acúmulo
+        if (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR') {
+          loadPendingAccumulateRequests();
+          populateNaoFazJusMilitaries();
+        }
 
       } catch (err) {
         console.error('Erro ao inicializar estado:', err);
@@ -160,6 +169,34 @@
 
       badgeElem.textContent = user.perfil;
       badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
+    }
+
+    function renderWindowBanner() {
+      const banner = document.getElementById('window-status-banner');
+      const icon = document.getElementById('window-banner-icon');
+      const title = document.getElementById('window-banner-title');
+      const subtext = document.getElementById('window-banner-subtext');
+      const tag = document.getElementById('window-banner-tag');
+
+      if (!banner || !state.choiceWindow) return;
+
+      const isOpen = state.choiceWindow.isOpen;
+
+      if (isOpen) {
+        banner.className = 'window-banner window-open';
+        icon.textContent = '📅';
+        title.textContent = 'Janela Oficial de Escolha: 01 a 16 de cada mês';
+        subtext.textContent = 'O sistema está aberto para escolhas da vez e trocas/permutas após a conclusão da escala pela equipe.';
+        tag.className = 'window-banner-tag tag-open';
+        tag.textContent = 'Janela Aberta';
+      } else {
+        banner.className = 'window-banner window-blocked';
+        icon.textContent = '🔒';
+        title.textContent = 'Sistema Bloqueado para Edição (Dias 17 ao fim do mês)';
+        subtext.textContent = 'Período regulamentar de escolha encerrado. O sistema está em modo somente leitura até o dia 1º da próxima competência.';
+        tag.className = 'window-banner-tag tag-blocked';
+        tag.textContent = 'Edição Bloqueada';
+      }
     }
 
     function renderRolePermissions() {
@@ -213,6 +250,18 @@
           statusElem.textContent = 'VEZ PASSADA';
           statusElem.style.color = 'var(--status-warning)';
           dataFolgaElem.textContent = 'Prazo expirado ou justificado';
+        } else if (myRow.status_fila === 'NAO_FAZ_JUS') {
+          statusElem.textContent = 'NÃO FAZ JUS';
+          statusElem.style.color = 'var(--brand-amber)';
+          dataFolgaElem.textContent = myRow.motivo_nao_faz_jus || 'Afastamento regulamentar';
+        } else if (myRow.status_fila === 'ACUMULADO') {
+          statusElem.textContent = 'FOLGA ACUMULADA';
+          statusElem.style.color = '#c084fc';
+          dataFolgaElem.textContent = 'Convertida em +1 crédito futuro';
+        } else if (myRow.status_fila === 'PENDENTE_VALIDACAO') {
+          statusElem.textContent = 'ACÚMULO PENDENTE';
+          statusElem.style.color = '#c084fc';
+          dataFolgaElem.textContent = 'Aguardando validação do Administrador';
         } else {
           statusElem.textContent = 'AGUARDANDO VEZ';
           statusElem.style.color = 'var(--text-secondary)';
@@ -238,6 +287,7 @@
         document.getElementById('choice-banner-title').textContent = 'Perfil de Acesso Administrativo';
         document.getElementById('choice-banner-desc').textContent = 'Use as abas Painel Operacional ou Administração para gerenciar as equipes.';
         document.getElementById('btn-confirmar-escolha').style.display = 'none';
+        document.getElementById('btn-solicitar-acumulo').style.display = 'none';
         return;
       }
 
@@ -247,17 +297,43 @@
       const myRow = queue.fila.find(f => f.militar_id === m.militar_id);
       const isMyTurn = (myRow && myRow.status_fila === 'SUA_VEZ');
       const hasChosen = (myRow && myRow.status_fila === 'ESCOLHIDO');
+      const isWindowOpen = state.choiceWindow && state.choiceWindow.isOpen;
 
       const banner = document.getElementById('choice-banner');
       const bannerTitle = document.getElementById('choice-banner-title');
       const bannerDesc = document.getElementById('choice-banner-desc');
       const btnConfirmar = document.getElementById('btn-confirmar-escolha');
+      const btnAcumulo = document.getElementById('btn-solicitar-acumulo');
       const confirmedBox = document.getElementById('confirmed-choice-box');
+
+      // Botões e status da fase de trocas
+      const swapBadge = document.getElementById('swap-phase-badge');
+      const swapSubtitle = document.getElementById('swap-phase-subtitle');
+      const btnTrocaVaga = document.getElementById('btn-abrir-troca-vaga');
+      const btnPermuta = document.getElementById('btn-abrir-permuta');
 
       if (hasChosen) {
         banner.style.display = 'none';
         confirmedBox.style.display = 'block';
         document.getElementById('confirmed-date-display').textContent = formatDate(myRow.data_folga);
+
+        // Verifica liberação da Fase de Trocas (após todos escolherem)
+        if (queue.fase_trocas_liberada) {
+          swapBadge.className = 'status-badge badge-escolhido';
+          swapBadge.textContent = 'Liberada para a Equipe';
+          swapSubtitle.textContent = isWindowOpen
+            ? 'Todos os militares da sua prontidão concluíram a escolha inicial! Você pode transferir sua data para outro dia vago ou permutar diretamente com um colega.'
+            : 'Fase de trocas concluída. O sistema está bloqueado para edições entre o dia 17 e o final do mês.';
+
+          btnTrocaVaga.disabled = !isWindowOpen;
+          btnPermuta.disabled = !isWindowOpen;
+        } else {
+          swapBadge.className = 'status-badge badge-aguardando';
+          swapBadge.textContent = 'Aguardando Restante da Equipe';
+          swapSubtitle.textContent = 'A fase de trocas e permutas será liberada automaticamente assim que todos os militares da sua equipe concluírem suas escolhas.';
+          btnTrocaVaga.disabled = true;
+          btnPermuta.disabled = true;
+        }
       } else {
         confirmedBox.style.display = 'none';
         banner.style.display = 'flex';
@@ -265,24 +341,31 @@
         if (isMyTurn) {
           banner.className = 'turn-banner';
           bannerTitle.innerHTML = '<span class="pulse-indicator"></span> É A SUA VEZ DE ESCOLHER!';
-          bannerDesc.textContent = 'Você é o militar mais antigo pendente na sua equipe. Escolha uma das datas de plantão abaixo.';
+          bannerDesc.textContent = isWindowOpen
+            ? 'Você é o militar mais antigo pendente na sua equipe. Escolha uma das datas de plantão abaixo ou opte por acumular para outro mês.'
+            : 'É a sua vez na escala, porém o sistema encontra-se bloqueado para edições (dias 17 ao fim do mês).';
+
           btnConfirmar.style.display = 'inline-flex';
-          btnConfirmar.disabled = !state.selectedDate;
+          btnConfirmar.disabled = !state.selectedDate || !isWindowOpen;
+
+          btnAcumulo.style.display = 'inline-flex';
+          btnAcumulo.disabled = !isWindowOpen;
         } else {
           banner.className = 'turn-banner waiting';
           bannerTitle.innerHTML = 'Aguardando sua vez na fila...';
           const prox = queue.proximo_da_vez;
           bannerDesc.textContent = prox 
             ? `Atualmente a vez é de: ${prox.graduacao} ${prox.nome_guerra} (${prox.posicao}º da fila).` 
-            : 'Fila aguardando liberação.';
+            : (queue.vagas_restantes === 0 ? 'Todas as escolhas da equipe foram concluídas.' : 'Fila aguardando liberação.');
           btnConfirmar.disabled = true;
+          btnAcumulo.style.display = 'none';
         }
       }
 
-      renderDateGrid(queue, isMyTurn);
+      renderDateGrid(queue, isMyTurn && isWindowOpen);
     }
 
-    function renderDateGrid(queue, isMyTurn) {
+    function renderDateGrid(queue, isInteractive) {
       const container = document.getElementById('eligible-dates-container');
       if (!container) return;
       container.innerHTML = '';
@@ -308,7 +391,7 @@
           </span>
         `;
 
-        if (!isOccupied && isMyTurn) {
+        if (!isOccupied && isInteractive) {
           card.onclick = () => {
             state.selectedDate = dateStr;
             document.querySelectorAll('.date-card').forEach(c => c.classList.remove('selected'));
@@ -339,12 +422,23 @@
         const rowClass = isMe ? 'highlight-my-row' : '';
         
         let badgeHtml = '';
+        let dataDisplay = item.data_folga ? formatDate(item.data_folga) : '--';
+
         if (item.status_fila === 'SUA_VEZ') {
           badgeHtml = '<span class="status-badge badge-sua-vez">● É A VEZ</span>';
         } else if (item.status_fila === 'ESCOLHIDO') {
           badgeHtml = '<span class="status-badge badge-escolhido">✓ Escolhido</span>';
         } else if (item.status_fila === 'PASSOU') {
           badgeHtml = '<span class="status-badge badge-passou">⟳ Passou</span>';
+        } else if (item.status_fila === 'NAO_FAZ_JUS') {
+          badgeHtml = '<span class="status-badge badge-nao-faz-jus">✕ Não Faz Jus</span>';
+          dataDisplay = `<span style="color: var(--brand-amber); font-size: 0.82rem;">${item.motivo_nao_faz_jus || 'Afastado'}</span>`;
+        } else if (item.status_fila === 'ACUMULADO') {
+          badgeHtml = '<span class="status-badge badge-acumulo">★ Acumulado</span>';
+          dataDisplay = '<span style="color: #c084fc; font-size: 0.82rem;">+1 Crédito Homologado</span>';
+        } else if (item.status_fila === 'PENDENTE_VALIDACAO') {
+          badgeHtml = '<span class="status-badge badge-acumulo">⏳ Aguardando Homologação</span>';
+          dataDisplay = '<span style="color: var(--text-muted); font-size: 0.82rem;">Acúmulo Pendente</span>';
         } else {
           badgeHtml = '<span class="status-badge badge-aguardando">Aguardando</span>';
         }
@@ -355,7 +449,7 @@
             <td>${item.graduacao}</td>
             <td><strong>${item.nome_guerra}</strong> ${isMe ? '<span style="color: var(--brand-red); font-size: 0.75rem;">(Você)</span>' : ''}</td>
             <td>${badgeHtml}</td>
-            <td>${item.data_folga ? formatDate(item.data_folga) : '--'}</td>
+            <td>${dataDisplay}</td>
           </tr>
         `;
       }).join('');
@@ -376,12 +470,68 @@
     }
 
     function formatDate(isoStr) {
-      if (!isoStr || isoStr === 'PASSOU_A_VEZ') return isoStr || '--';
+      if (!isoStr || isoStr === 'PASSOU_A_VEZ' || isoStr === 'NAO_FAZ_JUS') return isoStr || '--';
       const parts = isoStr.split('-');
       if (parts.length === 3) {
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
       }
       return isoStr;
+    }
+
+    /* ==========================================================================
+       CARREGAMENTO DE SOLICITAÇÕES DE ACÚMULO (ADMIN / GESTOR)
+       ========================================================================== */
+
+    async function loadPendingAccumulateRequests() {
+      try {
+        const tbody = document.getElementById('pending-accumulate-table-body');
+        if (!tbody) return;
+
+        const requests = await callServer('apiAdminGetPendingAccumulateRequests', null, 'Consultando acúmulos pendentes...');
+        
+        if (!requests || requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma solicitação de acúmulo pendente no momento.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = requests.map(r => `
+          <tr>
+            <td><strong>${r.militar_nome || r.militar_id}</strong></td>
+            <td>${r.equipe || '--'}</td>
+            <td><code>${r.competencia || '--'}</code></td>
+            <td style="font-size: 0.82rem; color: var(--text-secondary);">${r.justificativa || '--'}</td>
+            <td style="font-size: 0.8rem;">${new Date(r.data_solicitacao || r.data_criacao).toLocaleDateString('pt-BR')}</td>
+            <td>
+              <div style="display: flex; gap: 0.35rem;">
+                <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="App.approveAccumulate('${r.escolha_id}')">Aprovar</button>
+                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="App.openRejectAccumulate('${r.escolha_id}')">Recusar</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        console.error('Erro ao buscar acúmulos:', err);
+      }
+    }
+
+    function populateNaoFazJusMilitaries() {
+      const teamSelect = document.getElementById('nao-faz-jus-team-select');
+      const milSelect = document.getElementById('nao-faz-jus-militar-select');
+      if (!teamSelect || !milSelect) return;
+
+      const team = teamSelect.value;
+      const queue = state.queues[team];
+      if (!queue || !queue.fila) {
+        milSelect.innerHTML = '<option value="">Sem militares nesta equipe</option>';
+        return;
+      }
+
+      milSelect.innerHTML = queue.fila.map(f => `
+        <option value="${f.militar_id}">
+          ${f.posicao}º - ${f.graduacao} ${f.nome_guerra} (${f.status_fila})
+        </option>
+      `).join('');
     }
 
     /* ==========================================================================
@@ -397,6 +547,11 @@
           btn.classList.add('active');
           const target = document.getElementById(btn.getAttribute('data-tab'));
           if (target) target.classList.add('active');
+
+          if (btn.getAttribute('data-tab') === 'tab-gestor') {
+            loadPendingAccumulateRequests();
+            populateNaoFazJusMilitaries();
+          }
         });
       });
     }
@@ -416,7 +571,7 @@
       document.getElementById('btn-refresh-queue')?.addEventListener('click', async () => {
         if (!state.activePeriod) return;
         try {
-          const updated = await callServer('apiGetTeamQueue', state.selectedTeam, 'Atualizando lista...');
+          const updated = await callServer('apiGetTeamQueue', { periodo_id: state.activePeriod.periodo_id, equipe: state.selectedTeam }, 'Atualizando lista...');
           state.queues[state.selectedTeam] = updated;
           renderTeamQueue();
           showToast('Fila atualizada com sucesso!', 'info');
@@ -452,7 +607,6 @@
           showToast(res.mensagem || 'Folga confirmada com sucesso!', 'success');
           await loadInitialState();
         } catch (err) {
-          // Erro já exibido pelo toast
         } finally {
           state.isSubmitting = false;
         }
@@ -482,6 +636,212 @@
           
           document.getElementById('modal-cancel-choice').classList.remove('active');
           showToast('Folga cancelada com sucesso. Fila reaberta.', 'success');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // ========================================================================
+      // 1. REGRA: TROCA POR DIA VAGO (Pós-conclusão da equipe)
+      // ========================================================================
+      document.getElementById('btn-abrir-troca-vaga')?.addEventListener('click', () => {
+        if (!state.myChoice) return;
+        const queue = state.queues[state.user.militar.equipe];
+        if (!queue) return;
+
+        document.getElementById('troca-vaga-atual').value = formatDate(state.myChoice.data_folga);
+        const sel = document.getElementById('troca-vaga-select');
+        sel.innerHTML = '';
+
+        if (!queue.datas_disponiveis || queue.datas_disponiveis.length === 0) {
+          sel.innerHTML = '<option value="">Não há outras vagas disponíveis na equipe</option>';
+          document.getElementById('btn-modal-confirm-troca-vaga').disabled = true;
+        } else {
+          sel.innerHTML = queue.datas_disponiveis.map(d => `<option value="${d}">${formatDate(d)} (Plantão de 24h)</option>`).join('');
+          document.getElementById('btn-modal-confirm-troca-vaga').disabled = false;
+        }
+
+        document.getElementById('modal-troca-vaga').classList.add('active');
+      });
+
+      document.getElementById('btn-modal-close-troca-vaga')?.addEventListener('click', () => {
+        document.getElementById('modal-troca-vaga').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-troca-vaga')?.addEventListener('click', async () => {
+        const novaData = document.getElementById('troca-vaga-select').value;
+        const just = document.getElementById('troca-vaga-justificativa').value.trim();
+
+        if (!novaData) {
+          showToast('Selecione uma data disponível.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiChangeChoiceToAvailableDate', {
+            escolha_id: state.myChoice.escolha_id || state.myChoice.id,
+            nova_data_folga: novaData,
+            justificativa: just
+          }, 'Efetivando troca de dia vago...');
+
+          document.getElementById('modal-troca-vaga').classList.remove('active');
+          showToast('Data da folga alterada com sucesso!', 'success');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // ========================================================================
+      // 2. REGRA: PERMUTA DIRETA ENTRE MILITARES DA MESMA PRONTIDÃO
+      // ========================================================================
+      document.getElementById('btn-abrir-permuta')?.addEventListener('click', () => {
+        if (!state.myChoice) return;
+        const queue = state.queues[state.user.militar.equipe];
+        if (!queue) return;
+
+        document.getElementById('permuta-minha-data').value = formatDate(state.myChoice.data_folga);
+        const sel = document.getElementById('permuta-colega-select');
+        sel.innerHTML = '<option value="">Selecione um colega da equipe...</option>';
+
+        // Colegas que já têm escolha confirmada
+        const colegas = queue.fila.filter(f => f.militar_id !== state.user.militar.militar_id && f.status_fila === 'ESCOLHIDO');
+
+        if (colegas.length === 0) {
+          sel.innerHTML = '<option value="">Nenhum outro militar possui escolha ativa para permuta</option>';
+        } else {
+          colegas.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.militar_id;
+            opt.textContent = `${c.graduacao} ${c.nome_guerra} (Folga em ${formatDate(c.data_folga)})`;
+            opt.dataset.dataFolga = c.data_folga;
+            sel.appendChild(opt);
+          });
+        }
+
+        sel.onchange = () => {
+          const selectedOpt = sel.options[sel.selectedIndex];
+          const data = selectedOpt.dataset.dataFolga;
+          document.getElementById('permuta-colega-data').value = data ? formatDate(data) : '';
+        };
+
+        document.getElementById('modal-permuta-militar').classList.add('active');
+      });
+
+      document.getElementById('btn-modal-close-permuta')?.addEventListener('click', () => {
+        document.getElementById('modal-permuta-militar').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-permuta')?.addEventListener('click', async () => {
+        const colegaId = document.getElementById('permuta-colega-select').value;
+        const just = document.getElementById('permuta-justificativa').value.trim();
+
+        if (!colegaId) {
+          showToast('Selecione um colega da prontidão para permutar.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiRequestSwap', {
+            escolha_origem_id: state.myChoice.escolha_id || state.myChoice.id,
+            militar_destino_id: colegaId,
+            justificativa: just
+          }, 'Registrando solicitação de permuta mútua...');
+
+          document.getElementById('modal-permuta-militar').classList.remove('active');
+          showToast('Permuta solicitada com sucesso! Aguardando homologação.', 'success');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // ========================================================================
+      // 3. REGRA: SOLICITAÇÃO DE ACÚMULO DE FOLGA PARA OUTRO MÊS
+      // ========================================================================
+      document.getElementById('btn-solicitar-acumulo')?.addEventListener('click', () => {
+        document.getElementById('modal-solicitar-acumulo').classList.add('active');
+      });
+
+      document.getElementById('btn-modal-close-acumulo')?.addEventListener('click', () => {
+        document.getElementById('modal-solicitar-acumulo').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-acumulo')?.addEventListener('click', async () => {
+        const just = document.getElementById('acumulo-justificativa').value.trim();
+        if (!just) {
+          showToast('A justificativa é obrigatória para a opção de acúmulo de folga.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiRequestAccumulateLeave', {
+            periodo_id: state.activePeriod.periodo_id,
+            militar_id: state.user.militar.militar_id,
+            justificativa: just
+          }, 'Registrando solicitação de acúmulo no servidor...');
+
+          document.getElementById('modal-solicitar-acumulo').classList.remove('active');
+          showToast('Solicitação de acúmulo enviada! Sua vez foi liberada para o próximo militar.', 'success');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // Modal de Recusa de Acúmulo
+      document.getElementById('btn-modal-close-recusar-acumulo')?.addEventListener('click', () => {
+        document.getElementById('modal-recusar-acumulo').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-recusar-acumulo')?.addEventListener('click', async () => {
+        const escolhaId = document.getElementById('recusar-acumulo-escolha-id').value;
+        const motivo = document.getElementById('recusar-acumulo-motivo').value.trim();
+
+        if (!motivo) {
+          showToast('Informe o motivo formal da recusa do acúmulo.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiAdminRejectAccumulateLeave', {
+            escolha_id: escolhaId,
+            motivo: motivo
+          }, 'Registrando recusa de acúmulo...');
+
+          document.getElementById('modal-recusar-acumulo').classList.remove('active');
+          showToast('Solicitação de acúmulo recusada.', 'info');
+          await loadInitialState();
+        } catch (err) {}
+      });
+
+      // Botão de Atualizar Solicitações de Acúmulo
+      document.getElementById('btn-refresh-pending-accumulate')?.addEventListener('click', () => {
+        loadPendingAccumulateRequests();
+      });
+    }
+
+    function setupAdminForms() {
+      // Listener de alteração da equipe no Não Faz Jus
+      document.getElementById('nao-faz-jus-team-select')?.addEventListener('change', () => {
+        populateNaoFazJusMilitaries();
+      });
+
+      // Formulário Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS)
+      document.getElementById('form-nao-faz-jus')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const milId = document.getElementById('nao-faz-jus-militar-select').value;
+        const motivo = document.getElementById('nao-faz-jus-motivo-select').value;
+        const just = document.getElementById('nao-faz-jus-justificativa').value.trim();
+
+        if (!milId) {
+          showToast('Selecione um militar da equipe.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiAdminSetNaoFazJus', {
+            periodo_id: state.activePeriod.periodo_id,
+            militar_id: milId,
+            motivo: motivo,
+            justificativa: just
+          }, 'Registrando Não Faz Jus e avançando a fila...');
+
+          showToast('Militar registrado como Não Faz Jus. Vez transferida ao próximo!', 'success');
+          document.getElementById('nao-faz-jus-justificativa').value = '';
           await loadInitialState();
         } catch (err) {}
       });
@@ -568,8 +928,24 @@
       });
     }
 
+    // Ações globais para botões de homologação de acúmulo
+    async function approveAccumulate(escolhaId) {
+      try {
+        await callServer('apiAdminApproveAccumulateLeave', { escolha_id: escolhaId }, 'Homologando acúmulo de folga...');
+        showToast('Acúmulo homologado! 1 crédito de folga concedido ao militar.', 'success');
+        await loadInitialState();
+      } catch (err) {}
+    }
+
+    function openRejectAccumulate(escolhaId) {
+      document.getElementById('recusar-acumulo-escolha-id').value = escolhaId;
+      document.getElementById('modal-recusar-acumulo').classList.add('active');
+    }
+
     return {
-      init: init
+      init: init,
+      approveAccumulate: approveAccumulate,
+      openRejectAccumulate: openRejectAccumulate
     };
   })();
 

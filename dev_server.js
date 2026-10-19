@@ -118,6 +118,10 @@ PeriodService.changeStatus(adminCtx, pTest.periodo_id, Config.PERIOD_STATUS.ABER
 let currentSessionEmail = 'csilva.teste@gmail.com';
 AuthService.setEmailOverride(currentSessionEmail);
 
+// Controle da Janela de Escolha (Simulação: padrão aberta 01 a 16)
+let simulatedWindowOpen = true;
+ChoiceService.setBypassWindowCheck(simulatedWindowOpen);
+
 const PORT = 3000;
 
 const server = http.createServer((req, res) => {
@@ -134,10 +138,10 @@ const server = http.createServer((req, res) => {
 
       // Injeta a barra de troca de usuário e a ponte mockada do google.script.run
       const devBridge = `
-        <div id="dev-user-bar" style="background: #1e1b4b; border-bottom: 2px solid #6366f1; padding: 0.6rem 1.5rem; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 0.82rem; color: #e0e7ff; z-index: 9999; position: sticky; top: 0;">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW MODE (Simulador Local)</strong>
-            <span>| Alternar Usuário Ativo:</span>
+        <div id="dev-user-bar" style="background: #1e1b4b; border-bottom: 2px solid #6366f1; padding: 0.6rem 1.5rem; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 0.82rem; color: #e0e7ff; z-index: 9999; position: sticky; top: 0; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (Simulador Local CBM)</strong>
+            <span>| Alternar Usuário:</span>
             <select id="dev-user-select" style="background: #312e81; color: #fff; border: 1px solid #6366f1; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;">
               <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (Equipe A - 1º Antiguidade - É A SUA VEZ)</option>
               <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (Equipe A - 2º Antiguidade - Aguardando)</option>
@@ -145,9 +149,13 @@ const server = http.createServer((req, res) => {
               <option value="ribeiro.teste@gmail.com">👨‍🚒 SubTen Ribeiro (Equipe B - 1º Antiguidade)</option>
               <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin.cbm@gmail.com)</option>
             </select>
+
+            <button id="dev-window-toggle" style="background: ${simulatedWindowOpen ? '#065f46' : '#991b1b'}; color: #fff; border: 1px solid ${simulatedWindowOpen ? '#10b981' : '#ef4444'}; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              ${simulatedWindowOpen ? '📅 Janela: Aberta (01 a 16)' : '🔒 Janela: Bloqueada (17+)'}
+            </button>
           </div>
           <div style="font-size: 0.75rem; color: #c7d2fe;">
-            Planilha: <strong>SisFolgas (Em Memória)</strong> • Status: <strong>Período 2026-11 ABERTO</strong>
+            Planilha: <strong>SisFolgas</strong> • Período: <strong>2026-11 ABERTO</strong>
           </div>
         </div>
 
@@ -187,7 +195,13 @@ const server = http.createServer((req, res) => {
             'apiGrantCredit',
             'apiRegisterLeave',
             'apiRequestSwap',
-            'apiApproveSwap'
+            'apiApproveSwap',
+            'apiChangeChoiceToAvailableDate',
+            'apiRequestAccumulateLeave',
+            'apiAdminSetNaoFazJus',
+            'apiAdminApproveAccumulateLeave',
+            'apiAdminRejectAccumulateLeave',
+            'apiAdminGetPendingAccumulateRequests'
           ];
 
           exposedMethods.forEach(method => {
@@ -210,7 +224,7 @@ const server = http.createServer((req, res) => {
             };
           });
 
-          // Listener do seletor de usuário
+          // Listener do seletor de usuário e botão de alternância de janela
           document.addEventListener('DOMContentLoaded', () => {
             const select = document.getElementById('dev-user-select');
             if (select) {
@@ -226,6 +240,14 @@ const server = http.createServer((req, res) => {
                 }).then(() => {
                   window.location.reload();
                 });
+              });
+            }
+
+            const winBtn = document.getElementById('dev-window-toggle');
+            if (winBtn) {
+              winBtn.addEventListener('click', () => {
+                fetch('/api/toggle-window-mode', { method: 'POST' })
+                  .then(() => window.location.reload());
               });
             }
           });
@@ -292,6 +314,15 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/api/get-current-user') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ email: currentSessionEmail }));
+    return;
+  }
+
+  // Rota para alternar a janela de escolha (Simulação 01-16 vs 17+)
+  if (req.method === 'POST' && req.url === '/api/toggle-window-mode') {
+    simulatedWindowOpen = !simulatedWindowOpen;
+    ChoiceService.setBypassWindowCheck(simulatedWindowOpen);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, windowOpen: simulatedWindowOpen }));
     return;
   }
 

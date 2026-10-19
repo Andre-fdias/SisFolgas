@@ -36,6 +36,8 @@ global.DiagnosticsService = DiagnosticsService;
 global.BackupService = BackupService;
 global.AdminService = AdminService;
 
+ChoiceService.setBypassWindowCheck(true);
+
 function createMockSpreadsheet() {
   const sheets = {};
   function createMockSheet(name) {
@@ -148,15 +150,17 @@ test('2. Permutas entre Militares (SwapService)', async (t) => {
   Repository.initializeSchema(mockSs);
 
   const adminCtx = { authenticated: true, email: 'admin@bombeiros.gov.br', perfil: Config.ROLES.ADMIN, permissions: Config.ROLE_PERMISSIONS.ADMIN };
+  const p = PeriodService.createPeriod(adminCtx, { competencia: '2026-11', data_abertura: '2026-10-01', data_encerramento: '2026-11-30' });
+  PeriodService.changeStatus(adminCtx, p.periodo_id, Config.PERIOD_STATUS.ABERTO);
 
   const m1 = MilitaryService.saveMilitary(adminCtx, { re: '60001', nome_completo: 'Sd A', nome_guerra: 'A', graduacao: 'Sd', equipe: 'Equipe A', ordem_antiguidade: 1, email_vinculado: 'a@gmail.com' });
   const m2 = MilitaryService.saveMilitary(adminCtx, { re: '60002', nome_completo: 'Sd B', nome_guerra: 'B', graduacao: 'Sd', equipe: 'Equipe A', ordem_antiguidade: 2, email_vinculado: 'b@gmail.com' });
 
   const ctxA = { authenticated: true, email: 'a@gmail.com', perfil: Config.ROLES.MILITAR, permissions: Config.ROLE_PERMISSIONS.MILITAR, militar: m1 };
 
-  // Cadastra duas escolhas ativas
-  const e1 = { escolha_id: ValidationService.generateUuid(), periodo_id: 'p-1', militar_id: m1.militar_id, data_folga: '2026-11-04', equipe: 'Equipe A', ordem_no_momento: 1, status: Config.CHOICE_STATUS.ATIVA };
-  const e2 = { escolha_id: ValidationService.generateUuid(), periodo_id: 'p-1', militar_id: m2.militar_id, data_folga: '2026-11-10', equipe: 'Equipe A', ordem_no_momento: 2, status: Config.CHOICE_STATUS.ATIVA };
+  // Cadastra duas escolhas ativas (com ambos da equipe tendo escolhido)
+  const e1 = { escolha_id: ValidationService.generateUuid(), periodo_id: p.periodo_id, militar_id: m1.militar_id, data_folga: '2026-11-04', equipe: 'Equipe A', ordem_no_momento: 1, status: Config.CHOICE_STATUS.ATIVA };
+  const e2 = { escolha_id: ValidationService.generateUuid(), periodo_id: p.periodo_id, militar_id: m2.militar_id, data_folga: '2026-11-10', equipe: 'Equipe A', ordem_no_momento: 2, status: Config.CHOICE_STATUS.ATIVA };
   Repository.insert(Config.SHEETS.ESCOLHAS, e1);
   Repository.insert(Config.SHEETS.ESCOLHAS, e2);
 

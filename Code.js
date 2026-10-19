@@ -94,7 +94,13 @@ function apiGetInitialState() {
       },
       activePeriod: activePeriod,
       queues: queues,
-      teams: Config.DEFAULTS.TEAMS
+      teams: Config.DEFAULTS.TEAMS,
+      choiceWindow: {
+        isOpen: ChoiceService.isWithinChoiceWindow(),
+        currentDay: (new Date()).getDate(),
+        startDay: Config.DEFAULTS.CHOICE_WINDOW_START_DAY,
+        endDay: Config.DEFAULTS.CHOICE_WINDOW_END_DAY
+      }
     };
   });
 }
@@ -248,6 +254,73 @@ function apiApproveSwap(payload) {
   });
 }
 
+/**
+ * Troca de dia por outra vaga disponível (após todos da equipe escolherem)
+ */
+function apiChangeChoiceToAvailableDate(payload) {
+  return runSecureRpc('changeChoiceToAvailableDate', function(context, opId) {
+    return ChoiceService.changeChoiceToAvailableDate(
+      context,
+      payload.escolha_id,
+      payload.nova_data_folga,
+      payload.justificativa,
+      opId
+    );
+  });
+}
+
+/**
+ * Solicitação de acúmulo de folga para outro mês
+ */
+function apiRequestAccumulateLeave(payload) {
+  return runSecureRpc('requestAccumulateLeave', function(context, opId) {
+    return ChoiceService.requestAccumulateLeave(
+      context,
+      payload.periodo_id,
+      payload.militar_id,
+      payload.justificativa,
+      opId
+    );
+  });
+}
+
+/**
+ * Registro administrativo de NÃO FAZ JUS (férias, licença prêmio, convalescença, LTS)
+ */
+function apiAdminSetNaoFazJus(payload) {
+  return runSecureRpc('setNaoFazJus', function(context, opId) {
+    return AdminService.setNaoFazJus(
+      context,
+      payload.periodo_id,
+      payload.militar_id,
+      payload.motivo,
+      payload.justificativa,
+      opId
+    );
+  });
+}
+
+/**
+ * Homologação de Acúmulo de Folga pelo Administrador
+ */
+function apiAdminApproveAccumulateLeave(payload) {
+  return runSecureRpc('approveAccumulateLeave', function(context, opId) {
+    return AdminService.approveAccumulateLeave(context, payload.escolha_id, opId);
+  });
+}
+
+function apiAdminRejectAccumulateLeave(payload) {
+  return runSecureRpc('rejectAccumulateLeave', function(context, opId) {
+    return AdminService.rejectAccumulateLeave(context, payload.escolha_id, payload.motivo, opId);
+  });
+}
+
+function apiAdminGetPendingAccumulateRequests() {
+  return runSecureRpc('getPendingAccumulateRequests', function(context, opId) {
+    return AdminService.getPendingAccumulateRequests(context, opId);
+  });
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     doGet,
@@ -268,6 +341,12 @@ if (typeof module !== 'undefined' && module.exports) {
     apiGrantCredit,
     apiRegisterLeave,
     apiRequestSwap,
-    apiApproveSwap
+    apiApproveSwap,
+    apiChangeChoiceToAvailableDate,
+    apiRequestAccumulateLeave,
+    apiAdminSetNaoFazJus,
+    apiAdminApproveAccumulateLeave,
+    apiAdminRejectAccumulateLeave,
+    apiAdminGetPendingAccumulateRequests
   };
 }

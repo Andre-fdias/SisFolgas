@@ -18,6 +18,9 @@ const SwapService = (function() {
 
       if (!justificativa) throw new Error('Justificativa é obrigatória para solicitação de permuta.');
 
+      // Garante que a solicitação ocorre dentro da janela regulamentar (01 a 16)
+      ChoiceService.assertWithinChoiceWindow();
+
       const escolhaOrigem = Repository.findOne(Config.SHEETS.ESCOLHAS, 'escolha_id', escolhaOrigemId);
       if (!escolhaOrigem || escolhaOrigem.status !== Config.CHOICE_STATUS.ATIVA) {
         throw new Error('Sua escolha de folga informada não está ativa.');
@@ -33,6 +36,14 @@ const SwapService = (function() {
 
       if (escolhaDestino.militar_id !== militarDestinoId) {
         throw new Error('Inconsistência nos dados do militar de destino.');
+      }
+
+      // Se ambos forem da mesma equipe, exige que todos os militares da equipe já tenham escolhido
+      if (escolhaOrigem.equipe === escolhaDestino.equipe) {
+        const queueStatus = ChoiceService.getTeamQueueStatus(escolhaOrigem.periodo_id, escolhaOrigem.equipe);
+        if (!queueStatus.fase_trocas_liberada) {
+          throw new Error('A troca de folgas entre militares só é liberada após todos os integrantes da equipe concluírem suas escolhas iniciais.');
+        }
       }
 
       const permutaId = ValidationService.generateUuid();
