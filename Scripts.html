@@ -311,32 +311,42 @@
       const swapSubtitle = document.getElementById('swap-phase-subtitle');
       const btnTrocaVaga = document.getElementById('btn-abrir-troca-vaga');
       const btnPermuta = document.getElementById('btn-abrir-permuta');
+      const pendingBox = document.getElementById('pending-accumulation-box');
 
-      if (hasChosen) {
+      const isPendingValidation = (myRow && myRow.status_fila === 'PENDENTE_VALIDACAO');
+
+      if (isPendingValidation) {
         banner.style.display = 'none';
-        confirmedBox.style.display = 'block';
-        document.getElementById('confirmed-date-display').textContent = formatDate(myRow.data_folga);
-
-        // Verifica liberação da Fase de Trocas (após todos escolherem)
-        if (queue.fase_trocas_liberada) {
-          swapBadge.className = 'status-badge badge-escolhido';
-          swapBadge.textContent = 'Liberada para a Equipe';
-          swapSubtitle.textContent = isWindowOpen
-            ? 'Todos os militares da sua prontidão concluíram a escolha inicial! Você pode transferir sua data para outro dia vago ou permutar diretamente com um colega.'
-            : 'Fase de trocas concluída. O sistema está bloqueado para edições entre o dia 17 e o final do mês.';
-
-          btnTrocaVaga.disabled = !isWindowOpen;
-          btnPermuta.disabled = !isWindowOpen;
-        } else {
-          swapBadge.className = 'status-badge badge-aguardando';
-          swapBadge.textContent = 'Aguardando Restante da Equipe';
-          swapSubtitle.textContent = 'A fase de trocas e permutas será liberada automaticamente assim que todos os militares da sua equipe concluírem suas escolhas.';
-          btnTrocaVaga.disabled = true;
-          btnPermuta.disabled = true;
-        }
-      } else {
         confirmedBox.style.display = 'none';
-        banner.style.display = 'flex';
+        if (pendingBox) pendingBox.style.display = 'block';
+      } else {
+        if (pendingBox) pendingBox.style.display = 'none';
+
+        if (hasChosen) {
+          banner.style.display = 'none';
+          confirmedBox.style.display = 'block';
+          document.getElementById('confirmed-date-display').textContent = formatDate(myRow.data_folga);
+
+          // Verifica liberação da Fase de Trocas (após todos escolherem)
+          if (queue.fase_trocas_liberada) {
+            swapBadge.className = 'status-badge badge-escolhido';
+            swapBadge.textContent = 'Liberada para a Equipe';
+            swapSubtitle.textContent = isWindowOpen
+              ? 'Todos os militares da sua prontidão concluíram a escolha inicial! Você pode transferir sua data para outro dia vago ou permutar diretamente com um colega.'
+              : 'Fase de trocas concluída. O sistema está bloqueado para edições entre o dia 17 e o final do mês.';
+
+            btnTrocaVaga.disabled = !isWindowOpen;
+            btnPermuta.disabled = !isWindowOpen;
+          } else {
+            swapBadge.className = 'status-badge badge-aguardando';
+            swapBadge.textContent = 'Aguardando Restante da Equipe';
+            swapSubtitle.textContent = 'A fase de trocas e permutas será liberada automaticamente assim que todos os militares da sua equipe concluírem suas escolhas.';
+            btnTrocaVaga.disabled = true;
+            btnPermuta.disabled = true;
+          }
+        } else {
+          confirmedBox.style.display = 'none';
+          banner.style.display = 'flex';
 
         if (isMyTurn) {
           banner.className = 'turn-banner';
@@ -488,23 +498,50 @@
         if (!tbody) return;
 
         const requests = await callServer('apiAdminGetPendingAccumulateRequests', null, 'Consultando acúmulos pendentes...');
-        
+        const count = (requests && requests.length) || 0;
+
+        // Atualiza Badge na aba Painel Operacional
+        const badge = document.getElementById('badge-pending-accumulate');
+        if (badge) {
+          if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+
+        // Atualiza Alerta no Topo para Administrador / Gestor
+        const alertBanner = document.getElementById('admin-pending-alert');
+        const alertSubtext = document.getElementById('admin-pending-subtext');
+        if (alertBanner) {
+          const isPrivileged = state.user && (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR');
+          if (count > 0 && isPrivileged) {
+            alertBanner.style.display = 'flex';
+            if (alertSubtext) {
+              alertSubtext.textContent = `Existe(m) ${count} militar(es) aguardando homologação formal para acumular a folga.`;
+            }
+          } else {
+            alertBanner.style.display = 'none';
+          }
+        }
+
         if (!requests || requests.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma solicitação de acúmulo pendente no momento.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma solicitação de acúmulo pendente no momento.</td></tr>';
           return;
         }
 
         tbody.innerHTML = requests.map(r => `
           <tr>
-            <td><strong>${r.militar_nome || r.militar_id}</strong></td>
+            <td><strong>${r.militar_nome || (r.graduacao + ' ' + r.nome_guerra) || r.militar_id}</strong></td>
             <td>${r.equipe || '--'}</td>
             <td><code>${r.competencia || '--'}</code></td>
-            <td style="font-size: 0.82rem; color: var(--text-secondary);">${r.justificativa || '--'}</td>
-            <td style="font-size: 0.8rem;">${new Date(r.data_solicitacao || r.data_criacao).toLocaleDateString('pt-BR')}</td>
-            <td>
-              <div style="display: flex; gap: 0.35rem;">
-                <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="App.approveAccumulate('${r.escolha_id}')">Aprovar</button>
-                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="App.openRejectAccumulate('${r.escolha_id}')">Recusar</button>
+            <td style="font-size: 0.85rem; color: var(--text-secondary);">${r.justificativa || '--'}</td>
+            <td style="font-size: 0.8rem;">${new Date(r.criado_em || r.data_criacao || Date.now()).toLocaleDateString('pt-BR')}</td>
+            <td style="text-align: center;">
+              <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; background: #10b981; border-color: #059669;" onclick="App.approveAccumulate('${r.escolha_id}')">✓ Aprovar</button>
+                <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="App.openRejectAccumulate('${r.escolha_id}')">✕ Recusar</button>
               </div>
             </td>
           </tr>
@@ -557,6 +594,22 @@
     }
 
     function setupEventListeners() {
+      // Botão do banner de alerta que leva diretamente à validação no Painel Operacional
+      document.getElementById('btn-goto-homologacao')?.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+        const btnGestor = document.getElementById('btn-tab-gestor');
+        const paneGestor = document.getElementById('tab-gestor');
+        if (btnGestor) btnGestor.classList.add('active');
+        if (paneGestor) {
+          paneGestor.classList.add('active');
+          paneGestor.scrollIntoView({ behavior: 'smooth' });
+        }
+        loadPendingAccumulateRequests();
+        populateNaoFazJusMilitaries();
+      });
+
       // Seletor de Equipes na aba de Fila
       document.querySelectorAll('#team-selector-buttons button').forEach(btn => {
         btn.addEventListener('click', () => {

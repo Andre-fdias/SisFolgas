@@ -261,10 +261,13 @@ const AdminService = (function() {
 
       return pendentes.map(p => {
         const militar = MilitaryService.getById(p.militar_id);
+        const periodo = PeriodService.getById(p.periodo_id);
         return {
           escolha_id: p.escolha_id,
           periodo_id: p.periodo_id,
+          competencia: periodo ? periodo.competencia : '--',
           militar_id: p.militar_id,
+          militar_nome: militar ? `${militar.graduacao} ${militar.nome_guerra}` : 'Militar',
           nome_guerra: militar ? militar.nome_guerra : 'Desconhecido',
           graduacao: militar ? militar.graduacao : '',
           equipe: p.equipe,

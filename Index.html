@@ -40,6 +40,18 @@
       <div class="window-banner-tag tag-open" id="window-banner-tag">Janela Aberta</div>
     </div>
 
+    <!-- Alerta de Acúmulo Pendente para o Administrador / Gestor -->
+    <div id="admin-pending-alert" style="display: none; margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(88, 28, 135, 0.45), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: var(--radius-lg); padding: 1rem 1.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div style="display: flex; align-items: center; gap: 0.85rem;">
+        <span style="font-size: 1.8rem;">🔔</span>
+        <div>
+          <strong style="font-family: var(--font-heading); color: #fff; font-size: 1rem;">Atenção: Solicitação de Acúmulo de Folga Aguardando Validação</strong>
+          <div id="admin-pending-subtext" style="color: #d8b4fe; font-size: 0.85rem;">Existe(m) militar(es) que optaram por acumular a folga desta competência.</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-goto-homologacao" style="background: linear-gradient(135deg, #7c3aed, #9333ea); font-size: 0.85rem;">Validar no Painel Operacional →</button>
+    </div>
+
     <!-- KPI Metric Cards -->
     <section class="kpi-grid">
       <div class="kpi-card">
@@ -71,7 +83,9 @@
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="tab-escolha" id="btn-tab-escolha">Minha Escolha</button>
       <button class="tab-btn" data-tab="tab-fila" id="btn-tab-fila">Fila das Equipes</button>
-      <button class="tab-btn" data-tab="tab-gestor" id="btn-tab-gestor" style="display: none;">Painel Operacional</button>
+      <button class="tab-btn" data-tab="tab-gestor" id="btn-tab-gestor" style="display: none;">
+        Painel Operacional <span class="badge-counter" id="badge-pending-accumulate" style="display: none; background: #9333ea; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; margin-left: 6px; font-weight: 700;">0</span>
+      </button>
       <button class="tab-btn" data-tab="tab-admin" id="btn-tab-admin" style="display: none;">Administração & Auditoria</button>
     </nav>
 
@@ -117,6 +131,22 @@
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="swap-action-buttons">
             <button class="btn btn-secondary" id="btn-abrir-troca-vaga" disabled>🔄 Trocar por Outro Dia Vago</button>
             <button class="btn btn-secondary" id="btn-abrir-permuta" disabled>👥 Permutar com Colega</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalhes de Acúmulo Pendente de Homologação (se o militar solicitou acúmulo) -->
+      <div id="pending-accumulation-box" style="display: none; background: var(--bg-card); border: 2px solid rgba(168, 85, 247, 0.4); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <div style="font-size: 2.5rem;">⏳</div>
+          <div style="flex: 1;">
+            <h3 style="color: #c084fc; margin-bottom: 0.35rem; font-family: var(--font-heading);">Sua solicitação de acúmulo de folga está em análise</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 0.25rem;">
+              Você optou formalmente por acumular sua folga desta competência para fruição em meses futuros.
+            </p>
+            <p style="color: #d8b4fe; font-size: 0.82rem;">
+              Situação: <strong>Aguardando validação do Administrador no Painel Operacional</strong>. Assim que homologada, será gerado automaticamente 1 crédito em seu extrato e o registro será finalizado.
+            </p>
           </div>
         </div>
       </div>
@@ -174,73 +204,47 @@
     <section class="tab-pane" id="tab-gestor">
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
         
-        <!-- Passagem de Vez Justificada -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
-          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Passagem de Vez na Fila</h3>
-          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
-            Se o militar que está na vez excedeu o prazo de 24h sem manifestação, o Gestor pode registrar a passagem de vez justificada para liberar a fila.
-          </p>
+        <!-- 1. Homologação Administrativa de Acúmulo de Folgas (Destaque Principal) -->
+        <div style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9)); border: 2px solid rgba(168, 85, 247, 0.4); border-radius: var(--radius-lg); padding: 1.75rem; grid-column: 1 / -1; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 1.8rem;">📋</span>
+              <div>
+                <h3 style="font-family: var(--font-heading); margin-bottom: 0.2rem; color: #c084fc; font-size: 1.2rem;">Validação e Homologação de Acúmulo de Folga</h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                  Aprecie os pedidos de militares que optaram por acumular a folga em vez de usufruir na competência atual.
+                </p>
+              </div>
+            </div>
+            <button class="btn btn-secondary" id="btn-refresh-pending-accumulate" style="font-size: 0.82rem; border-color: rgba(168, 85, 247, 0.5);">🔄 Atualizar Pedidos</button>
+          </div>
 
-          <form id="form-pass-turn">
-            <div class="form-group">
-              <label class="form-label">Equipe</label>
-              <select class="form-select" id="pass-turn-team-select">
-                <option value="Equipe A">Equipe A</option>
-                <option value="Equipe B">Equipe B</option>
-                <option value="Equipe C">Equipe C</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Militar Atual da Vez</label>
-              <input type="text" class="form-input" id="pass-turn-military-name" readonly placeholder="Calculando próximo da vez...">
-              <input type="hidden" id="pass-turn-military-id">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Justificativa Operacional Obrigatória</label>
-              <textarea class="form-textarea" id="pass-turn-justification" rows="3" placeholder="Ex: Prazo de 24h expirado sem contato do militar conforme escala de serviço."></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary" id="btn-submit-pass-turn">Passar a Vez Justificadamente</button>
-          </form>
+          <div class="table-container" style="background: rgba(11, 15, 25, 0.6); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>Militar Solicitante</th>
+                  <th>Prontidão</th>
+                  <th>Competência</th>
+                  <th>Justificativa Apresentada</th>
+                  <th>Data da Solicitação</th>
+                  <th style="width: 200px; text-align: center;">Decisão Administrativa</th>
+                </tr>
+              </thead>
+              <tbody id="pending-accumulate-table-body">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma solicitação de acúmulo pendente no momento.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Registro de Afastamento Operacional -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
-          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Registro de Afastamento (LGPD)</h3>
-          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
-            Registra férias regulamentares ou licenças operacionais sem expor dados médicos ou CIDs.
-          </p>
-
-          <form id="form-register-leave">
-            <div class="form-group">
-              <label class="form-label">ID do Militar</label>
-              <input type="text" class="form-input" id="leave-military-id" placeholder="UUID do Militar">
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-              <div class="form-group">
-                <label class="form-label">Data Início</label>
-                <input type="date" class="form-input" id="leave-start-date">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Data Fim</label>
-                <input type="date" class="form-input" id="leave-end-date">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Tipo Operacional</label>
-              <select class="form-select" id="leave-type-select">
-                <option value="FERIAS">Férias Regulamentares</option>
-                <option value="LICENCA_PREMIO">Licença-Prêmio</option>
-                <option value="DISPENSA_SERVICO">Dispensa de Serviço</option>
-                <option value="CURSO">Curso de Especialização</option>
-              </select>
-            </div>
-            <button type="submit" class="btn btn-secondary" id="btn-submit-leave">Registrar Afastamento</button>
-          </form>
-        <!-- Registro de Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS) -->
+        <!-- 2. Registro de Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS) -->
         <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
           <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--brand-amber);">Marcar "Não Faz Jus" (Pula a Vez)</h3>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
-            Militares em férias, licença-prêmio, convalescença ou LTS não fazem jus à folga. O registro pula a escolha diretamente para o próximo.
+            Militares em férias, licença-prêmio, convalescença ou LTS não escolhem folga. O registro avança a fila diretamente para o próximo.
           </p>
 
           <form id="form-nao-faz-jus">
@@ -275,37 +279,68 @@
           </form>
         </div>
 
-        <!-- Homologação Administrativa de Acúmulo de Folgas -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; grid-column: 1 / -1;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-              <h3 style="font-family: var(--font-heading); margin-bottom: 0.25rem; color: #c084fc;">Homologação de Acúmulo de Folga para Outro Mês</h3>
-              <p style="color: var(--text-secondary); font-size: 0.85rem;">
-                Solicitações feitas por militares que optaram por acumular a folga em vez de usufruir neste mês.
-              </p>
-            </div>
-            <button class="btn btn-secondary" id="btn-refresh-pending-accumulate" style="font-size: 0.82rem;">Atualizar Solicitações</button>
-          </div>
+        <!-- 3. Passagem de Vez Justificada -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Passagem de Vez na Fila</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Se o militar que está na vez excedeu o prazo de 24h sem manifestação, o Gestor pode registrar a passagem de vez justificada para liberar a fila.
+          </p>
 
-          <div class="table-container">
-            <table class="queue-table">
-              <thead>
-                <tr>
-                  <th>Militar</th>
-                  <th>Equipe</th>
-                  <th>Competência</th>
-                  <th>Justificativa do Militar</th>
-                  <th>Data da Solicitação</th>
-                  <th style="width: 180px;">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="pending-accumulate-table-body">
-                <tr>
-                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma solicitação de acúmulo pendente no momento.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <form id="form-pass-turn">
+            <div class="form-group">
+              <label class="form-label">Equipe</label>
+              <select class="form-select" id="pass-turn-team-select">
+                <option value="Equipe A">Equipe A</option>
+                <option value="Equipe B">Equipe B</option>
+                <option value="Equipe C">Equipe C</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Militar Atual da Vez</label>
+              <input type="text" class="form-input" id="pass-turn-military-name" readonly placeholder="Calculando próximo da vez...">
+              <input type="hidden" id="pass-turn-military-id">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Justificativa Operacional Obrigatória</label>
+              <textarea class="form-textarea" id="pass-turn-justification" rows="2" placeholder="Ex: Prazo de 24h expirado sem contato do militar conforme escala de serviço."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-submit-pass-turn">Passar a Vez Justificadamente</button>
+          </form>
+        </div>
+
+        <!-- 4. Registro de Afastamento Operacional -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Registro de Afastamento (LGPD)</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Registra férias regulamentares ou licenças operacionais sem expor dados médicos ou CIDs.
+          </p>
+
+          <form id="form-register-leave">
+            <div class="form-group">
+              <label class="form-label">ID do Militar</label>
+              <input type="text" class="form-input" id="leave-military-id" placeholder="UUID do Militar">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div class="form-group">
+                <label class="form-label">Data Início</label>
+                <input type="date" class="form-input" id="leave-start-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Data Fim</label>
+                <input type="date" class="form-input" id="leave-end-date">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo Operacional</label>
+              <select class="form-select" id="leave-type-select">
+                <option value="FERIAS">Férias Regulamentares</option>
+                <option value="LICENCA_PREMIO">Licença-Prêmio</option>
+                <option value="DISPENSA_SERVICO">Dispensa de Serviço</option>
+                <option value="CURSO">Curso de Especialização</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-secondary" id="btn-submit-leave">Registrar Afastamento</button>
+          </form>
         </div>
 
       </div>

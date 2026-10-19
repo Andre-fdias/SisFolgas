@@ -8,39 +8,40 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// Carrega os módulos do backend
-const Config = require('./Config.js');
-const ValidationService = require('./ValidationService.js');
-const Repository = require('./Repository.js');
-const AuditService = require('./AuditService.js');
-const AuthService = require('./AuthService.js');
-const MilitaryService = require('./MilitaryService.js');
-const PeriodService = require('./PeriodService.js');
-const ChoiceService = require('./ChoiceService.js');
-const CreditService = require('./CreditService.js');
-const SwapService = require('./SwapService.js');
-const LeaveService = require('./LeaveService.js');
-const DiagnosticsService = require('./DiagnosticsService.js');
-const BackupService = require('./BackupService.js');
-const AdminService = require('./AdminService.js');
-const SeedData = require('./SeedData.js');
-const Code = require('./Code.js');
+// Carrega os módulos do backend e simula escopo global do Apps Script
+global.Config = require('./Config.js');
+global.ValidationService = require('./ValidationService.js');
+global.Repository = require('./Repository.js');
+global.AuditService = require('./AuditService.js');
+global.AuthService = require('./AuthService.js');
+global.MilitaryService = require('./MilitaryService.js');
+global.PeriodService = require('./PeriodService.js');
+global.ChoiceService = require('./ChoiceService.js');
+global.CreditService = require('./CreditService.js');
+global.SwapService = require('./SwapService.js');
+global.LeaveService = require('./LeaveService.js');
+global.DiagnosticsService = require('./DiagnosticsService.js');
+global.BackupService = require('./BackupService.js');
+global.AdminService = require('./AdminService.js');
+global.SeedData = require('./SeedData.js');
+global.Code = require('./Code.js');
 
-// Simula escopo global do Apps Script
-global.Config = Config;
-global.ValidationService = ValidationService;
-global.Repository = Repository;
-global.AuditService = AuditService;
-global.AuthService = AuthService;
-global.MilitaryService = MilitaryService;
-global.PeriodService = PeriodService;
-global.ChoiceService = ChoiceService;
-global.CreditService = CreditService;
-global.SwapService = SwapService;
-global.LeaveService = LeaveService;
-global.DiagnosticsService = DiagnosticsService;
-global.BackupService = BackupService;
-global.AdminService = AdminService;
+const Config = global.Config;
+const ValidationService = global.ValidationService;
+const Repository = global.Repository;
+const AuditService = global.AuditService;
+const AuthService = global.AuthService;
+const MilitaryService = global.MilitaryService;
+const PeriodService = global.PeriodService;
+const ChoiceService = global.ChoiceService;
+const CreditService = global.CreditService;
+const SwapService = global.SwapService;
+const LeaveService = global.LeaveService;
+const DiagnosticsService = global.DiagnosticsService;
+const BackupService = global.BackupService;
+const AdminService = global.AdminService;
+const SeedData = global.SeedData;
+const Code = global.Code;
 
 // Mock do Spreadsheet em memória
 function createMockSpreadsheet() {
@@ -150,6 +151,10 @@ const server = http.createServer((req, res) => {
               <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin.cbm@gmail.com)</option>
             </select>
 
+            <button id="btn-quick-switch-admin" style="background: #4338ca; color: #fff; border: 1px solid #818cf8; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              👑 Entrar como Administrador
+            </button>
+
             <button id="dev-window-toggle" style="background: ${simulatedWindowOpen ? '#065f46' : '#991b1b'}; color: #fff; border: 1px solid ${simulatedWindowOpen ? '#10b981' : '#ef4444'}; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
               ${simulatedWindowOpen ? '📅 Janela: Aberta (01 a 16)' : '🔒 Janela: Bloqueada (17+)'}
             </button>
@@ -250,6 +255,17 @@ const server = http.createServer((req, res) => {
                   .then(() => window.location.reload());
               });
             }
+
+            const adminBtn = document.getElementById('btn-quick-switch-admin');
+            if (adminBtn) {
+              adminBtn.addEventListener('click', () => {
+                fetch('/api/set-user', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: 'admin.cbm@gmail.com' })
+                }).then(() => window.location.reload());
+              });
+            }
           });
         </script>
       `;
@@ -287,8 +303,9 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(result));
       } catch (err) {
+        console.error('SERVER RPC ERROR:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: { message: err.message } }));
+        res.end(JSON.stringify({ success: false, error: { message: err.message, stack: err.stack } }));
       }
     });
     return;

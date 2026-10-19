@@ -3,6 +3,25 @@
  * Code.js - Ponto de entrada Web App (doGet), roteamento de RPCs seguras e DTO envelopes
  */
 
+if (typeof module !== 'undefined' && module.exports) {
+  if (typeof global !== 'undefined') {
+    global.Config = global.Config || require('./Config.js');
+    global.ValidationService = global.ValidationService || require('./ValidationService.js');
+    global.Repository = global.Repository || require('./Repository.js');
+    global.AuditService = global.AuditService || require('./AuditService.js');
+    global.AuthService = global.AuthService || require('./AuthService.js');
+    global.MilitaryService = global.MilitaryService || require('./MilitaryService.js');
+    global.PeriodService = global.PeriodService || require('./PeriodService.js');
+    global.ChoiceService = global.ChoiceService || require('./ChoiceService.js');
+    global.AdminService = global.AdminService || require('./AdminService.js');
+    global.CreditService = global.CreditService || require('./CreditService.js');
+    global.LeaveService = global.LeaveService || require('./LeaveService.js');
+    global.SwapService = global.SwapService || require('./SwapService.js');
+    global.DiagnosticsService = global.DiagnosticsService || require('./DiagnosticsService.js');
+    global.BackupService = global.BackupService || require('./BackupService.js');
+  }
+}
+
 /**
  * Ponto de entrada HTTP do Google Apps Script
  */
@@ -108,7 +127,13 @@ function apiGetInitialState() {
 /**
  * Consulta atualizada da fila de uma equipe
  */
-function apiGetTeamQueue(periodoId, equipe) {
+function apiGetTeamQueue(arg1, arg2) {
+  let periodoId = arg1;
+  let equipe = arg2;
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    periodoId = arg1.periodo_id;
+    equipe = arg1.equipe;
+  }
   return runSecureRpc('getTeamQueue', function(context, opId) {
     AuthService.requireAuthentication(context);
     return ChoiceService.getTeamQueueStatus(periodoId, equipe);
