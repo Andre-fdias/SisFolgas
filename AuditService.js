@@ -68,6 +68,18 @@ const AuditService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarConsultaAuditoria() {
+  Logger.log('=== CONSULTA DE AUDITORIA (ÚLTIMOS 10 REGISTROS) ===');
+  const logs = AuditService.getRecentLogs(10);
+  Logger.log('Total de registros recentes encontrados: ' + logs.length);
+  Logger.log(JSON.stringify(logs, null, 2));
+  return logs;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = AuditService;
+  module.exports.executarConsultaAuditoria = executarConsultaAuditoria;
 }

@@ -102,6 +102,20 @@ const CreditService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarListagemCreditos() {
+  Logger.log('=== LISTAGEM DE CRÉDITOS DE FOLGA ===');
+  const creditos = Repository.findAll(Config.SHEETS.CREDITOS);
+  Logger.log('Total de créditos registrados: ' + creditos.length);
+  creditos.forEach(function(c) {
+    Logger.log('Militar ID: ' + c.militar_id + ' | Qtd: ' + c.quantidade + ' | Motivo: ' + c.motivo + ' | Status: ' + c.status);
+  });
+  return creditos;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CreditService;
+  module.exports.executarListagemCreditos = executarListagemCreditos;
 }

@@ -279,6 +279,17 @@ const AdminService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarPainelAdministrativo() {
+  Logger.log('=== PAINEL ADMINISTRATIVO SISFOLGAS ===');
+  const dashboard = AdminService.getSystemDashboard();
+  Logger.log(JSON.stringify(dashboard, null, 2));
+  return dashboard;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = AdminService;
+  module.exports.executarPainelAdministrativo = executarPainelAdministrativo;
 }

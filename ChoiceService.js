@@ -519,6 +519,26 @@ const ChoiceService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarVerificacaoEscolhas() {
+  Logger.log('=== STATUS DA FILA E ESCOLHAS ===');
+  const periodos = PeriodService.list();
+  const ativo = periodos.find(function(p) { return p.status === Config.PERIOD_STATUS.ABERTO; });
+  if (!ativo) {
+    Logger.log('Nenhum período de escolha ABERTO no momento.');
+    return null;
+  }
+  Logger.log('Período Ativo: ' + ativo.competencia);
+  Config.DEFAULTS.TEAMS.forEach(function(eq) {
+    const queue = ChoiceService.getTeamQueueStatus(ativo.periodo_id, eq);
+    Logger.log('Equipe ' + eq + ': Fase Trocas=' + queue.fase_trocas_liberada + ', Total Escolhas=' + (queue.escolhas_feitas ? queue.escolhas_feitas.length : 0));
+  });
+  return ativo;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ChoiceService;
+  module.exports.executarVerificacaoEscolhas = executarVerificacaoEscolhas;
 }

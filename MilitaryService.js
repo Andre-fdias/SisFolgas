@@ -153,6 +153,20 @@ const MilitaryService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarListagemMilitares() {
+  Logger.log('=== LISTAGEM DE MILITARES CADASTRADOS ===');
+  const militares = MilitaryService.listAll();
+  Logger.log('Total de militares encontrados: ' + militares.length);
+  militares.forEach(function(m) {
+    Logger.log('[' + m.equipe + '] Antiguidade: ' + m.ordem_antiguidade + ' - ' + m.graduacao + ' ' + m.nome_guerra + ' (RE: ' + m.re + '-' + m.digito_re + ')');
+  });
+  return militares;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = MilitaryService;
+  module.exports.executarListagemMilitares = executarListagemMilitares;
 }

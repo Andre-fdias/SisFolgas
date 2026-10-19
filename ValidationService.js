@@ -209,6 +209,19 @@ const ValidationService = {
   }
 };
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarTestesValidacao() {
+  Logger.log('=== TESTES DE VALIDAÇÃO E SANITIZAÇÃO ===');
+  const safeStr = ValidationService.sanitizeString('<script>alert("teste")</script>Bombeiro');
+  Logger.log('Sanitização anti-XSS testada: ' + safeStr);
+  const uuid = ValidationService.generateUuid();
+  Logger.log('UUID gerado com sucesso: ' + uuid);
+  return { safeStr: safeStr, uuid: uuid };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ValidationService;
+  module.exports.executarTestesValidacao = executarTestesValidacao;
 }

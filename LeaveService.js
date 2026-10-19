@@ -83,6 +83,17 @@ const LeaveService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarListagemAfastamentos() {
+  Logger.log('=== LISTAGEM DE AFASTAMENTOS OPERACIONAIS ===');
+  const afastamentos = Repository.findAll(Config.SHEETS.AFASTAMENTOS);
+  Logger.log('Total de afastamentos registrados: ' + afastamentos.length);
+  return afastamentos;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = LeaveService;
+  module.exports.executarListagemAfastamentos = executarListagemAfastamentos;
 }

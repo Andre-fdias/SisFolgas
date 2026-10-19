@@ -187,6 +187,17 @@ const AuthService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarVerificacaoSessao() {
+  Logger.log('=== VERIFICAÇÃO DE SESSÃO E IDENTIDADE GOOGLE ===');
+  const email = (typeof Session !== 'undefined' && Session.getActiveUser) ? Session.getActiveUser().getEmail() : 'local';
+  Logger.log('E-mail do usuário ativo no Google: ' + email);
+  return email;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = AuthService;
+  module.exports.executarVerificacaoSessao = executarVerificacaoSessao;
 }

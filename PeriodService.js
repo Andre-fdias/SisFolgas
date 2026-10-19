@@ -147,6 +147,20 @@ const PeriodService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarListagemPeriodos() {
+  Logger.log('=== LISTAGEM DE PERÍODOS DE FOLGA ===');
+  const periodos = PeriodService.list();
+  Logger.log('Total de períodos cadastrados: ' + periodos.length);
+  periodos.forEach(function(p) {
+    Logger.log('Competência: ' + p.competencia + ' | Status: ' + p.status + ' | Início: ' + p.data_inicio + ' | Fim: ' + p.data_fim);
+  });
+  return periodos;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = PeriodService;
+  module.exports.executarListagemPeriodos = executarListagemPeriodos;
 }

@@ -221,6 +221,17 @@ const SwapService = (function() {
   };
 })();
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarListagemPermutas() {
+  Logger.log('=== LISTAGEM DE PERMUTAS DE FOLGA ===');
+  const permutas = Repository.findAll(Config.SHEETS.PERMUTAS);
+  Logger.log('Total de permutas registradas: ' + permutas.length);
+  return permutas;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = SwapService;
+  module.exports.executarListagemPermutas = executarListagemPermutas;
 }

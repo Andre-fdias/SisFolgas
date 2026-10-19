@@ -279,6 +279,19 @@ const Config = {
   }
 };
 
+/**
+ * Função executável de topo para execução direta no editor do Google Apps Script
+ */
+function executarExibirConfiguracoes() {
+  Logger.log('=== CONFIGURAÇÕES DO SISTEMA SISFOLGAS ===');
+  Logger.log('App: ' + Config.APP.NAME + ' v' + Config.APP.VERSION);
+  Logger.log('Equipes: ' + Config.DEFAULTS.TEAMS.join(', '));
+  Logger.log('Escala: ' + Config.DEFAULTS.SCALE_TYPE);
+  Logger.log('Janela de escolha: dias ' + Config.DEFAULTS.CHOICE_WINDOW_START_DAY + ' a ' + Config.DEFAULTS.CHOICE_WINDOW_END_DAY);
+  return Config.APP;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Config;
+  module.exports.executarExibirConfiguracoes = executarExibirConfiguracoes;
 }
