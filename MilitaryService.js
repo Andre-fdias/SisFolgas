@@ -29,11 +29,14 @@ const MilitaryService = (function() {
     },
 
     /**
-     * Busca militar por ID
+     * Busca militar por ID ou RE
+     * REGRA OBRIGATÓRIA: O ID deve ser sempre o RE coluna B da aba militares
      */
     getById: function(militarId) {
       if (!militarId) return null;
-      return Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', militarId);
+      const clean = String(militarId).trim();
+      return Repository.findOne(Config.SHEETS.MILITARES, 're', clean) ||
+             Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', clean);
     },
 
     /**
@@ -116,7 +119,7 @@ const MilitaryService = (function() {
 
         return updated;
       } else {
-        const militarId = ValidationService.generateUuid();
+        const militarId = cleanRe; // REGRA: O ID deve ser sempre o RE coluna B da aba militares
         const record = {
           militar_id: militarId,
           re: cleanRe,

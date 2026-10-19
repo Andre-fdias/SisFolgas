@@ -48,12 +48,56 @@ const AuthService = (function() {
         };
       }
 
+      // 0. Detecta se o e-mail corresponde ao dono da planilha ou criador do script
+      let isOwner = false;
+      try {
+        if (typeof SpreadsheetApp !== 'undefined') {
+          const ss = SpreadsheetApp.getActiveSpreadsheet();
+          if (ss && ss.getOwner && ss.getOwner().getEmail()) {
+            const ownerEmail = ValidationService.normalizeEmail(ss.getOwner().getEmail());
+            if (ownerEmail && ownerEmail.toLowerCase() === email.toLowerCase()) {
+              isOwner = true;
+            }
+          }
+        }
+      } catch (e) {}
+
+      try {
+        if (!isOwner && typeof Session !== 'undefined' && Session.getEffectiveUser && Session.getEffectiveUser().getEmail()) {
+          const effEmail = ValidationService.normalizeEmail(Session.getEffectiveUser().getEmail());
+          if (effEmail && effEmail.toLowerCase() === email.toLowerCase()) {
+            isOwner = true;
+          }
+        }
+      } catch (e) {}
+
       // 1. Busca cadastro na aba USUARIOS
       const users = Repository.find(Config.SHEETS.USUARIOS, function(u) {
         return u.email_google && u.email_google.toLowerCase() === email.toLowerCase() && u.ativo === true;
       });
 
       let user = users.length > 0 ? users[0] : null;
+
+      // Se for o Dono da Planilha, ele é AUTOMATICAMENTE o ADMINISTRADOR do sistema!
+      if (isOwner) {
+        if (!user) {
+          user = {
+            usuario_id: ValidationService.generateUuid(),
+            email_google: email,
+            militar_id: '',
+            perfil: Config.ROLES.ADMIN,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.USUARIOS, user);
+        } else if (user.perfil !== Config.ROLES.ADMIN) {
+          user = Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', user.usuario_id, {
+            perfil: Config.ROLES.ADMIN,
+            atualizado_em: new Date().toISOString()
+          });
+        }
+      }
 
       // 2. Se não existir na aba USUARIOS, busca na aba MILITARES pelo e-mail vinculado cadastrado pelo Admin
       if (!user) {
@@ -64,10 +108,12 @@ const AuthService = (function() {
         if (militares.length > 0) {
           const militar = militares[0];
           // Auto-onboarding seguro: cria registro do usuário com perfil MILITAR
+          // REGRA: O ID deve ser sempre o RE coluna B da aba militares (ou militar_id se já preenchido)
+          const targetMilitarId = militar.militar_id || militar.re;
           user = {
             usuario_id: ValidationService.generateUuid(),
             email_google: email,
-            militar_id: militar.militar_id,
+            militar_id: targetMilitarId,
             perfil: Config.ROLES.MILITAR,
             ativo: true,
             criado_em: new Date().toISOString(),
@@ -77,7 +123,7 @@ const AuthService = (function() {
 
           AuditService.log({
             userEmail: email,
-            militarId: militar.militar_id,
+            militarId: targetMilitarId,
             acao: 'AUTO_ONBOARDING_USUARIO',
             entidade: 'USUARIOS',
             registroId: user.usuario_id,
@@ -87,7 +133,7 @@ const AuthService = (function() {
         }
       }
 
-      // Se o usuário não foi autorizado pelo administrador
+      // Se o usuário não foi autorizado pelo administrador nem é o dono da planilha
       if (!user) {
         AuditService.logSecurityEvent('UNREGISTERED_ACCESS_ATTEMPT', { email: email }, email);
         return {
@@ -100,10 +146,11 @@ const AuthService = (function() {
         };
       }
 
-      // 3. Resolve os dados funcionais do militar associado
+      // 3. Resolve os dados funcionais do militar associado (suporta busca por RE ou militar_id)
       let militar = null;
       if (user.militar_id) {
-        militar = Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', user.militar_id);
+        militar = Repository.findOne(Config.SHEETS.MILITARES, 're', user.militar_id) ||
+                  Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', user.militar_id);
       }
 
       const permissions = Config.ROLE_PERMISSIONS[user.perfil] || [];
@@ -172,8 +219,11 @@ const AuthService = (function() {
         return true; // Gestor pode registrar afastamento ou passagem justificada
       }
 
-      // Se for perfil MILITAR, deve coincidir exatamente com seu próprio militar_id
-      if (!context.militar || String(context.militar.militar_id) !== String(targetMilitarId)) {
+      // Se for perfil MILITAR, deve coincidir com seu próprio militar_id ou RE
+      const mId = context.militar ? String(context.militar.militar_id) : '';
+      const mRe = context.militar ? String(context.militar.re || '') : '';
+      const targetStr = String(targetMilitarId);
+      if (!context.militar || (mId !== targetStr && mRe !== targetStr)) {
         AuditService.logSecurityEvent('IMPERSONATION_ATTEMPT', {
           usuarioTentativa: context.email,
           militarAutenticadoId: context.militar ? context.militar.militar_id : null,

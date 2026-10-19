@@ -37,15 +37,34 @@ const SeedData = (function() {
     /**
      * Carrega os 21 militares fictícios e 1 administrador padrão na planilha de teste
      */
-    populateTestData: function(adminEmail = 'admin.cbm@gmail.com') {
+    populateTestData: function(adminEmail) {
       const now = new Date().toISOString();
 
-      // 1. Cadastra Administrador
-      const existingAdmin = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', adminEmail);
+      // Detecta automaticamente o dono da planilha ou usuário ativo
+      let targetAdmin = adminEmail;
+      if (!targetAdmin || targetAdmin === 'admin.cbm@gmail.com') {
+        try {
+          if (typeof SpreadsheetApp !== 'undefined') {
+            const ss = SpreadsheetApp.getActiveSpreadsheet();
+            if (ss && ss.getOwner && ss.getOwner().getEmail()) {
+              targetAdmin = ss.getOwner().getEmail();
+            }
+          }
+        } catch (e) {}
+        try {
+          if (!targetAdmin && typeof Session !== 'undefined' && Session.getActiveUser && Session.getActiveUser().getEmail()) {
+            targetAdmin = Session.getActiveUser().getEmail();
+          }
+        } catch (e) {}
+        if (!targetAdmin) targetAdmin = 'admin.cbm@gmail.com';
+      }
+
+      // 1. Cadastra Administrador (Dono da planilha)
+      const existingAdmin = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', targetAdmin);
       if (!existingAdmin) {
         Repository.insert(Config.SHEETS.USUARIOS, {
           usuario_id: ValidationService.generateUuid(),
-          email_google: adminEmail,
+          email_google: targetAdmin,
           militar_id: '',
           perfil: Config.ROLES.ADMIN,
           ativo: true,
@@ -54,14 +73,16 @@ const SeedData = (function() {
         });
       }
 
-      // 2. Cadastra os 21 militares fictícios
+      // 2. Cadastra os 21 militares fictícios (REGRA: o ID deve sempre ser o RE coluna B)
       let inserted = 0;
       MOCK_MILITARES.forEach(mock => {
-        const existing = Repository.findOne(Config.SHEETS.MILITARES, 're', mock.re);
+        const cleanRe = String(mock.re);
+        const existing = Repository.findOne(Config.SHEETS.MILITARES, 're', cleanRe) ||
+                         Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', cleanRe);
         if (!existing) {
           Repository.insert(Config.SHEETS.MILITARES, {
-            militar_id: ValidationService.generateUuid(),
-            re: mock.re,
+            militar_id: cleanRe, // Coluna A = RE
+            re: cleanRe,         // Coluna B = RE
             digito_re: mock.digito_re,
             nome_completo: mock.nome_completo,
             nome_guerra: mock.nome_guerra,
@@ -79,11 +100,31 @@ const SeedData = (function() {
         }
       });
 
+      // 3. Cadastra o Período Ativo Padrão NOV26 (se não houver nenhum cadastrado)
+      let periodoCriado = null;
+      const periodosExistentes = Repository.getAll(Config.SHEETS.PERIODOS);
+      const temAberto = periodosExistentes.some(p => p.status === Config.PERIOD_STATUS.ABERTO);
+      if (!temAberto) {
+        periodoCriado = {
+          periodo_id: ValidationService.generateUuid(),
+          competencia: 'NOV26',
+          data_abertura: '2026-11-01',
+          data_encerramento: '2026-11-30',
+          status: Config.PERIOD_STATUS.ABERTO,
+          regras_json: JSON.stringify({ escala: '24x48', janela: '01-16' }),
+          criado_por: targetAdmin,
+          criado_em: now,
+          atualizado_em: now
+        };
+        Repository.insert(Config.SHEETS.PERIODOS, periodoCriado);
+      }
+
       return {
         success: true,
-        adminCriado: adminEmail,
+        adminCriado: targetAdmin,
         militaresInseridos: inserted,
-        totalMockMilitares: MOCK_MILITARES.length
+        totalMockMilitares: MOCK_MILITARES.length,
+        periodoAtivo: temAberto ? 'Existente' : 'NOV26 criado e ABERTO'
       };
     }
   };

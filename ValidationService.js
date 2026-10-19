@@ -131,19 +131,36 @@ const ValidationService = {
   },
 
   /**
-   * Valida UUID v4
+   * Valida Identificador Geral (UUID v4 ou RE militar)
+   * REGRA OBRIGATÓRIA: O ID militar deve ser sempre o RE (coluna B da aba militares)
+   */
+  validateId: function(id, fieldName) {
+    const name = fieldName || 'Identificador';
+    if (!id || (typeof id !== 'string' && typeof id !== 'number')) {
+      throw new Error(`${name} inválido ou ausente.`);
+    }
+    const clean = String(id).trim();
+    if (!clean) {
+      throw new Error(`${name} não pode ser vazio.`);
+    }
+    return clean;
+  },
+
+  /**
+   * Valida UUID v4 ou RE militar
    */
   validateUuid: function(uuid, fieldName) {
     const name = fieldName || 'Identificador';
-    if (!uuid || typeof uuid !== 'string') {
+    if (!uuid || (typeof uuid !== 'string' && typeof uuid !== 'number')) {
       throw new Error(`${name} inválido ou ausente.`);
     }
-    const clean = uuid.trim();
+    const clean = String(uuid).trim();
     const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!regex.test(clean)) {
-      throw new Error(`${name} não é um UUID válido.`);
+    // Aceita UUID ou RE/ID alfanumérico seguro (conforme regra do RE como ID)
+    if (regex.test(clean) || /^[a-zA-Z0-9_\-\.]{1,36}$/.test(clean)) {
+      return clean;
     }
-    return clean;
+    throw new Error(`${name} não é um identificador válido: '${uuid}'.`);
   },
 
   /**

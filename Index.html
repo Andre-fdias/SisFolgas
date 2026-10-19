@@ -83,6 +83,7 @@
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="tab-escolha" id="btn-tab-escolha">Minha Escolha</button>
       <button class="tab-btn" data-tab="tab-fila" id="btn-tab-fila">Fila das Equipes</button>
+      <button class="tab-btn" data-tab="tab-militares" id="btn-tab-militares">Efetivo de Militares</button>
       <button class="tab-btn" data-tab="tab-gestor" id="btn-tab-gestor" style="display: none;">
         Painel Operacional <span class="badge-counter" id="badge-pending-accumulate" style="display: none; background: #9333ea; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; margin-left: 6px; font-weight: 700;">0</span>
       </button>
@@ -197,6 +198,54 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Tab 2.5: Efetivo de Militares (Listagem Oficial da Planilha) -->
+    <section class="tab-pane" id="tab-militares">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <h2 style="font-family: var(--font-heading); font-size: 1.25rem; color: #fff; margin-bottom: 0.25rem;">
+              👥 Efetivo de Bombeiros Militares Cadastrados
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">
+              Dados integrados à planilha. O identificador oficial no sistema é sempre o <strong>RE (Coluna B da aba MILITARES)</strong>.
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="militar-team-filter-buttons">
+            <button class="btn btn-secondary active-team" data-filter="TODAS" id="btn-militar-filter-all">Todas as Equipes</button>
+            <button class="btn btn-secondary" data-filter="Equipe A" id="btn-militar-filter-a">Equipe A</button>
+            <button class="btn btn-secondary" data-filter="Equipe B" id="btn-militar-filter-b">Equipe B</button>
+            <button class="btn btn-secondary" data-filter="Equipe C" id="btn-militar-filter-c">Equipe C</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <input type="text" id="militar-search-input" placeholder="🔍 Buscar por RE, Nome de Guerra ou Graduação..." style="flex: 1; min-width: 260px; padding: 0.65rem 1rem; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: #fff; font-size: 0.88rem;">
+          <button class="btn btn-secondary" id="btn-refresh-militares-list">🔄 Atualizar Efetivo</button>
+        </div>
+
+        <div class="table-container">
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th style="width: 120px;">RE (ID)</th>
+                <th>Graduação</th>
+                <th>Nome de Guerra</th>
+                <th>Prontidão</th>
+                <th style="width: 100px; text-align: center;">Antiguidade</th>
+                <th>Conta Google Vinculada</th>
+                <th style="text-align: center; width: 180px;">Ação de Login / Vínculo</th>
+              </tr>
+            </thead>
+            <tbody id="militares-table-body">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando efetivo de militares...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 

@@ -102,18 +102,20 @@ const mockSs = createMockSpreadsheet();
 Repository.setSpreadsheetOverride(mockSs);
 Repository.initializeSchema(mockSs);
 
-// Carrega os 21 militares fictícios e o admin
+// Carrega os 21 militares fictícios, admin e período padrão NOV26
 const adminEmail = 'admin.cbm@gmail.com';
 SeedData.populateTestData(adminEmail);
 
-// Cria e abre um período de teste para 2026-11
-const adminCtx = { authenticated: true, email: adminEmail, perfil: Config.ROLES.ADMIN, permissions: Config.ROLE_PERMISSIONS.ADMIN };
-const pTest = PeriodService.createPeriod(adminCtx, {
-  competencia: '2026-11',
-  data_abertura: '2026-10-01T00:00:00Z',
-  data_encerramento: '2026-11-30T23:59:59Z'
-});
-PeriodService.changeStatus(adminCtx, pTest.periodo_id, Config.PERIOD_STATUS.ABERTO);
+let pTest = PeriodService.getActivePeriod();
+if (!pTest) {
+  const adminCtx = { authenticated: true, email: adminEmail, perfil: Config.ROLES.ADMIN, permissions: Config.ROLE_PERMISSIONS.ADMIN };
+  pTest = PeriodService.createPeriod(adminCtx, {
+    competencia: 'NOV26',
+    data_abertura: '2026-11-01',
+    data_encerramento: '2026-11-30'
+  });
+  PeriodService.changeStatus(adminCtx, pTest.periodo_id, Config.PERIOD_STATUS.ABERTO);
+}
 
 // E-mail ativo da sessão no dev server (padrão: 1º Sgt C. Silva - Equipe A, 1º da fila)
 let currentSessionEmail = 'csilva.teste@gmail.com';
@@ -191,7 +193,9 @@ const server = http.createServer((req, res) => {
               'apiAdminRejectAccumulateLeave',
               'apiAdminGetPendingAccumulateRequests',
               'apiAdminGetPendingSwaps',
-              'apiAdminRejectSwap'
+              'apiAdminRejectSwap',
+              'apiLinkGoogleToMilitary',
+              'apiGetAllMilitares'
             ];
 
             function createRunner(successFn, failureFn) {

@@ -114,13 +114,6 @@ function runSecureRpc(actionName, fn) {
  */
 function apiGetInitialState() {
   return runSecureRpc('getInitialState', function(context, opId) {
-    if (!context.authenticated) {
-      return {
-        authenticated: false,
-        error: context.error
-      };
-    }
-
     const activePeriod = PeriodService.getActivePeriod();
     const sanitizedMilitar = context.militar ? ValidationService.sanitizeMilitaryDto(context.militar, true) : null;
 
@@ -131,14 +124,35 @@ function apiGetInitialState() {
       });
     }
 
+    // Lista completa de todos os militares cadastrados para exibição direta no sistema
+    const allMilitares = MilitaryService.getAllActive().map(m => {
+      const isSelf = context.militar && (String(context.militar.re) === String(m.re));
+      const isAdmin = context.perfil === Config.ROLES.ADMIN;
+      return ValidationService.sanitizeMilitaryDto(m, isSelf || isAdmin);
+    });
+
+    if (!context.authenticated) {
+      return {
+        authenticated: false,
+        error: context.error,
+        email: context.email || '',
+        militares: allMilitares,
+        activePeriod: activePeriod,
+        queues: queues,
+        teams: Config.DEFAULTS.TEAMS
+      };
+    }
+
     return {
       authenticated: true,
       user: {
         email: context.email,
         perfil: context.perfil,
         permissions: context.permissions,
-        militar: sanitizedMilitar
+        militar: sanitizedMilitar,
+        isOwner: Boolean(context.isOwner)
       },
+      militares: allMilitares,
       activePeriod: activePeriod,
       queues: queues,
       teams: Config.DEFAULTS.TEAMS,
@@ -149,6 +163,74 @@ function apiGetInitialState() {
         endDay: Config.DEFAULTS.CHOICE_WINDOW_END_DAY
       }
     };
+  });
+}
+
+/**
+ * Vinculação direta de e-mail Google a um RE militar
+ */
+function apiLinkGoogleToMilitary(payload) {
+  return runSecureRpc('linkGoogleToMilitary', function(context, opId) {
+    const re = ValidationService.normalizeRE(payload.re);
+    const militar = MilitaryService.getByRE(re);
+    if (!militar) throw new Error(`Militar com RE ${re} não encontrado.`);
+
+    const emailToLink = (context.perfil === Config.ROLES.ADMIN && payload.email) 
+      ? ValidationService.normalizeEmail(payload.email) 
+      : context.email;
+
+    if (!emailToLink) throw new Error('E-mail Google obrigatório para vinculação.');
+
+    // Atualiza o militar na aba MILITARES
+    Repository.updateById(Config.SHEETS.MILITARES, 're', re, {
+      email_vinculado: emailToLink,
+      atualizado_em: new Date().toISOString()
+    });
+
+    // Cria ou atualiza o usuário na aba USUARIOS
+    const existingUser = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', emailToLink);
+    if (existingUser) {
+      Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', existingUser.usuario_id, {
+        militar_id: re,
+        atualizado_em: new Date().toISOString()
+      });
+    } else {
+      Repository.insert(Config.SHEETS.USUARIOS, {
+        usuario_id: ValidationService.generateUuid(),
+        email_google: emailToLink,
+        militar_id: re,
+        perfil: Config.ROLES.MILITAR,
+        ativo: true,
+        criado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString()
+      });
+    }
+
+    AuditService.log({
+      userEmail: context.email,
+      militarId: re,
+      acao: 'VINCULACAO_CONTA_GOOGLE',
+      entidade: 'USUARIOS',
+      registroId: re,
+      resultado: Config.AUDIT_RESULT.SUCESSO,
+      justificativa: `Conta Google ${emailToLink} vinculada ao militar RE ${re} (${militar.nome_guerra})`,
+      opId: opId
+    });
+
+    return {
+      success: true,
+      mensagem: `Conta Google ${emailToLink} vinculada com sucesso ao RE ${re} (${militar.nome_guerra})!`
+    };
+  });
+}
+
+function apiGetAllMilitares() {
+  return runSecureRpc('getAllMilitares', function(context) {
+    const isAdmin = context.perfil === Config.ROLES.ADMIN;
+    return MilitaryService.getAllActive().map(m => {
+      const isSelf = context.militar && (String(context.militar.re) === String(m.re));
+      return ValidationService.sanitizeMilitaryDto(m, isSelf || isAdmin);
+    });
   });
 }
 
@@ -415,6 +497,8 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminGetPendingAccumulateRequests,
     apiAdminGetPendingSwaps,
     apiAdminRejectSwap,
+    apiLinkGoogleToMilitary,
+    apiGetAllMilitares,
     setupInicializarSistema,
     setupCriarApenasAbas,
     setupPopularApenasMilitares

@@ -12,6 +12,9 @@
       activePeriod: null,
       choiceWindow: null,
       queues: {},
+      militares: [],
+      militarFilter: 'TODAS',
+      militarSearch: '',
       selectedTeam: 'Equipe A',
       selectedDate: null,
       isSubmitting: false,
@@ -118,19 +121,32 @@
       try {
         const data = await callServer('apiGetInitialState', null, 'Autenticando sessão com o Google...');
         
+        state.militares = data.militares || [];
+        state.activePeriod = data.activePeriod;
+        state.queues = data.queues || {};
+        state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
+
         if (!data.authenticated) {
-          document.getElementById('user-display-name').textContent = 'Acesso Não Autorizado';
-          document.getElementById('user-role-badge').textContent = 'BLOQUEADO';
-          document.getElementById('user-role-badge').className = 'user-role-tag role-admin';
-          showToast(data.error || 'Acesso negado: sua conta Google não está cadastrada no sistema.', 'error');
+          state.authenticated = false;
+          state.user = {
+            email: data.email || 'Conta Google Não Vinculada',
+            perfil: 'VISITANTE',
+            permissions: [],
+            militar: null,
+            isOwner: false
+          };
+          renderUserInfo();
+          renderWindowBanner();
+          renderKpis();
+          renderTeamQueue();
+          renderChoiceTab();
+          renderMilitaresList();
+          showToast('Conectado ao Google. Escolha seu RE na aba "Efetivo de Militares" para vincular.', 'info');
           return;
         }
 
         state.authenticated = true;
         state.user = data.user;
-        state.activePeriod = data.activePeriod;
-        state.queues = data.queues || {};
-        state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
 
         if (state.user.militar && state.user.militar.equipe) {
           state.selectedTeam = state.user.militar.equipe;
@@ -142,6 +158,7 @@
         renderRolePermissions();
         renderTeamQueue();
         renderChoiceTab();
+        renderMilitaresList();
 
         // Se perfil administrativo, carrega solicitações de acúmulo e permutas
         if (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR') {
@@ -161,15 +178,101 @@
 
       const nameElem = document.getElementById('user-display-name');
       const badgeElem = document.getElementById('user-role-badge');
+      const emailElem = document.getElementById('user-google-email');
 
-      if (user.militar) {
-        nameElem.textContent = `${user.militar.graduacao} ${user.militar.nome_guerra} (${user.militar.equipe})`;
-      } else {
-        nameElem.textContent = user.email;
+      if (emailElem && user.email) {
+        emailElem.textContent = user.email;
       }
 
-      badgeElem.textContent = user.perfil;
-      badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
+      if (user.militar) {
+        nameElem.textContent = `${user.militar.graduacao} ${user.militar.nome_guerra} (RE: ${user.militar.re || user.militar.militar_id})`;
+      } else {
+        nameElem.textContent = user.email || 'Usuário Google';
+      }
+
+      if (user.isOwner) {
+        badgeElem.textContent = 'ADMIN (DONO DA PLANILHA)';
+        badgeElem.className = 'user-role-tag role-admin';
+      } else if (user.perfil) {
+        badgeElem.textContent = user.perfil;
+        badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
+      }
+    }
+
+    function renderMilitaresList() {
+      const tbody = document.getElementById('militares-table-body');
+      if (!tbody) return;
+
+      const filterTeam = state.militarFilter || 'TODAS';
+      const search = (state.militarSearch || '').toLowerCase().trim();
+
+      let list = state.militares || [];
+      if (filterTeam !== 'TODAS') {
+        list = list.filter(m => m.equipe === filterTeam);
+      }
+
+      if (search) {
+        list = list.filter(m => {
+          const re = String(m.re || '').toLowerCase();
+          const nomeGuerra = (m.nome_guerra || '').toLowerCase();
+          const grad = (m.graduacao || '').toLowerCase();
+          const nomeCompleto = (m.nome_completo || '').toLowerCase();
+          return re.includes(search) || nomeGuerra.includes(search) || grad.includes(search) || nomeCompleto.includes(search);
+        });
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar encontrado para os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      const myEmail = (state.user && state.user.email) ? state.user.email.toLowerCase() : '';
+      const isAdmin = state.user && (state.user.perfil === 'ADMIN' || state.user.isOwner);
+
+      tbody.innerHTML = list.map(m => {
+        const displayRe = m.re || m.militar_id || '--';
+        const displayDigito = m.digito_re ? '-' + m.digito_re : '';
+        const isLinkedToMe = m.email_vinculado && (m.email_vinculado.toLowerCase() === myEmail);
+        const hasEmail = Boolean(m.email_vinculado);
+
+        let actionHtml = '';
+        if (isLinkedToMe) {
+          actionHtml = `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(16, 185, 129, 0.4);">✅ Seu Perfil</span>`;
+        } else if (isAdmin) {
+          actionHtml = `<button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.vincularMilitar('${displayRe}', '${m.nome_guerra}')">✏️ Vincular E-mail</button>`;
+        } else if (!hasEmail) {
+          actionHtml = `<button class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.vincularMeuGoogle('${displayRe}', '${m.nome_guerra}')">⚡ Vincular Meu Google</button>`;
+        } else {
+          actionHtml = `<span style="color: var(--text-muted); font-size: 0.78rem;">Vinculado</span>`;
+        }
+
+        const emailDisplay = m.email_vinculado 
+          ? `<span style="color: #60a5fa; font-size: 0.82rem;">${m.email_vinculado}</span>` 
+          : `<span style="color: var(--text-muted); font-size: 0.82rem; font-style: italic;">Pendente</span>`;
+
+        return `
+          <tr>
+            <td>
+              <span style="font-family: monospace; font-weight: 700; color: #fff; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+                ${displayRe}${displayDigito}
+              </span>
+            </td>
+            <td><strong>${m.graduacao}</strong></td>
+            <td>
+              <span style="color: #fff; font-weight: 600;">${m.nome_guerra}</span>
+              ${m.nome_completo ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${m.nome_completo}</div>` : ''}
+            </td>
+            <td>
+              <span class="user-role-tag" style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-subtle); font-size: 0.75rem;">
+                ${m.equipe}
+              </span>
+            </td>
+            <td style="text-align: center; font-weight: 700; color: #f59e0b;">${m.ordem_antiguidade}º</td>
+            <td>${emailDisplay}</td>
+            <td style="text-align: center;">${actionHtml}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderWindowBanner() {
@@ -639,6 +742,10 @@
             loadPendingSwaps();
             populateNaoFazJusMilitaries();
           }
+
+          if (btn.getAttribute('data-tab') === 'tab-militares') {
+            renderMilitaresList();
+          }
         });
       });
     }
@@ -679,6 +786,28 @@
           renderTeamQueue();
           showToast('Fila atualizada com sucesso!', 'info');
         } catch (err) {}
+      });
+
+      // Seletor de Equipes na aba de Efetivo
+      document.querySelectorAll('#militar-team-filter-buttons button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#militar-team-filter-buttons button').forEach(b => b.classList.remove('active-team'));
+          btn.classList.add('active-team');
+          state.militarFilter = btn.getAttribute('data-filter');
+          renderMilitaresList();
+        });
+      });
+
+      // Busca por texto no Efetivo
+      document.getElementById('militar-search-input')?.addEventListener('input', (e) => {
+        state.militarSearch = e.target.value;
+        renderMilitaresList();
+      });
+
+      // Botão Atualizar Efetivo
+      document.getElementById('btn-refresh-militares-list')?.addEventListener('click', async () => {
+        await loadInitialState();
+        showToast('Efetivo atualizado com sucesso!', 'info');
       });
 
       // Botão Confirmar Escolha -> Abre Modal de Confirmação
@@ -1097,12 +1226,49 @@
       document.getElementById('modal-recusar-permuta').classList.add('active');
     }
 
+    async function vincularMeuGoogle(re, nomeGuerra) {
+      const email = state.user ? state.user.email : '';
+      if (!email || email.includes('Não Vinculada') || email.includes('Não Identificado')) {
+        const inputEmail = prompt(`Informe a sua conta Google (Gmail) para vincular ao militar ${nomeGuerra} (RE: ${re}):`);
+        if (!inputEmail) return;
+        try {
+          await callServer('apiLinkGoogleToMilitary', { re: re, email: inputEmail.trim() }, 'Vinculando conta Google ao militar...');
+          showToast(`Conta Google vinculada com sucesso ao RE ${re} (${nomeGuerra})!`, 'success');
+          await loadInitialState();
+        } catch (e) {}
+        return;
+      }
+
+      if (!confirm(`Confirma vincular a sua conta Google conectada (${email}) ao militar ${nomeGuerra} (RE: ${re})?`)) {
+        return;
+      }
+
+      try {
+        await callServer('apiLinkGoogleToMilitary', { re: re, email: email }, 'Vinculando conta Google ao militar...');
+        showToast(`Conta Google vinculada com sucesso ao RE ${re} (${nomeGuerra})!`, 'success');
+        await loadInitialState();
+      } catch (e) {}
+    }
+
+    async function vincularMilitar(re, nomeGuerra) {
+      const novoEmail = prompt(`Informe o e-mail Google para vincular ao militar ${nomeGuerra} (RE: ${re}):`);
+      if (!novoEmail) return;
+
+      try {
+        await callServer('apiLinkGoogleToMilitary', { re: re, email: novoEmail.trim() }, 'Atualizando vínculo de e-mail...');
+        showToast(`E-mail ${novoEmail} vinculado com sucesso ao RE ${re}!`, 'success');
+        await loadInitialState();
+      } catch (e) {}
+    }
+
     return {
       init: init,
       approveAccumulate: approveAccumulate,
       openRejectAccumulate: openRejectAccumulate,
       approveSwap: approveSwap,
-      openRejectSwap: openRejectSwap
+      openRejectSwap: openRejectSwap,
+      vincularMeuGoogle: vincularMeuGoogle,
+      vincularMilitar: vincularMilitar
     };
   })();
 
