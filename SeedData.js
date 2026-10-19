@@ -89,6 +89,16 @@ const SeedData = (function() {
   };
 })();
 
+/**
+ * Função executável diretamente pelo menu do Apps Script
+ */
+function executarCargaMilitaresTeste() {
+  Logger.log('Iniciando carga de 21 bombeiros militares de teste...');
+  const res = SeedData.populateTestData();
+  Logger.log('Resultado: ' + JSON.stringify(res));
+  Logger.log('✅ 21 militares cadastrados com sucesso nas 3 equipes!');
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = SeedData;
 }

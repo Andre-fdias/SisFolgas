@@ -94,6 +94,16 @@ const BackupService = (function() {
   };
 })();
 
+/**
+ * Função executável diretamente pelo menu do Apps Script
+ */
+function executarBackupManual() {
+  Logger.log('Iniciando geração de cópia de segurança (Snapshot de Backup)...');
+  const res = BackupService.createBackupSnapshot();
+  Logger.log('Backup concluído com ID: ' + res.backup_id);
+  Logger.log('Resumo: ' + JSON.stringify(res.stats));
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = BackupService;
 }

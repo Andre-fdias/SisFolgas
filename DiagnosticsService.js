@@ -107,6 +107,17 @@ const DiagnosticsService = (function() {
   };
 })();
 
+/**
+ * Função executável diretamente pelo menu do Apps Script
+ */
+function executarDiagnosticoDoBanco() {
+  Logger.log('Iniciando diagnóstico do banco de dados...');
+  const res = DiagnosticsService.runFullDiagnostics();
+  Logger.log('Status: ' + res.status);
+  Logger.log('Total de problemas: ' + res.totalIssues);
+  Logger.log('Detalhes: ' + JSON.stringify(res, null, 2));
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DiagnosticsService;
 }

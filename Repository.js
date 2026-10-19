@@ -258,6 +258,16 @@ const Repository = (function() {
   };
 })();
 
+/**
+ * Função executável diretamente pelo menu do Apps Script
+ */
+function executarCriacaoDeAbas() {
+  Logger.log('Iniciando criação das 9 abas do SisFolgas...');
+  const res = Repository.initializeSchema();
+  Logger.log('Resultado: ' + JSON.stringify(res));
+  Logger.log('✅ 9 abas verificadas e prontas na planilha!');
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Repository;
 }
