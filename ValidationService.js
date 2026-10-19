@@ -59,17 +59,49 @@ const ValidationService = {
   },
 
   /**
-   * Valida formato de competência YYYY-MM
+   * Valida e normaliza competência para o padrão ISO (YYYY-MM).
+   * Aceita tanto o formato militar corporativo (NOV26, DEZ26, JAN27) quanto ISO (2026-11).
    */
   validateCompetencia: function(comp) {
     if (!comp || typeof comp !== 'string') {
-      throw new Error('Competência deve ser uma string no formato YYYY-MM.');
+      throw new Error('Competência deve ser informada (ex: NOV26 ou 2026-11).');
     }
-    const match = comp.trim().match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+    const clean = comp.trim().toUpperCase().replace('/', '');
+    const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[-]?(\d{2})$/);
+    if (milMatch) {
+      const months = {
+        'JAN': '01', 'FEV': '02', 'MAR': '03', 'ABR': '04',
+        'MAI': '05', 'JUN': '06', 'JUL': '07', 'AGO': '08',
+        'SET': '09', 'OUT': '10', 'NOV': '11', 'DEZ': '12'
+      };
+      const monthStr = months[milMatch[1]];
+      const yearStr = '20' + milMatch[2];
+      return `${yearStr}-${monthStr}`;
+    }
+    const match = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
     if (!match) {
-      throw new Error(`Competência inválida: '${comp}'. Formato esperado: YYYY-MM.`);
+      throw new Error(`Competência inválida: '${comp}'. Formato esperado: NOV26 ou YYYY-MM.`);
     }
-    return comp.trim();
+    return clean;
+  },
+
+  /**
+   * Formata competência para o padrão oficial militar (ex: 2026-11 -> NOV26, 2027-01 -> JAN27)
+   */
+  formatCompetencia: function(comp) {
+    if (!comp || typeof comp !== 'string') return '--';
+    const clean = comp.trim().toUpperCase().replace('/', '');
+    const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)(\d{2})$/);
+    if (milMatch) return clean;
+
+    const isoMatch = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+    if (isoMatch) {
+      const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+      const monthIdx = parseInt(isoMatch[2], 10) - 1;
+      const yearShort = isoMatch[1].slice(-2);
+      return `${months[monthIdx]}${yearShort}`;
+    }
+    return comp;
   },
 
   /**

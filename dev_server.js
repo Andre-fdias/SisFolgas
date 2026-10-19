@@ -160,7 +160,7 @@ const server = http.createServer((req, res) => {
             </button>
           </div>
           <div style="font-size: 0.75rem; color: #c7d2fe;">
-            Planilha: <strong>SisFolgas</strong> • Período: <strong>2026-11 ABERTO</strong>
+            Planilha: <strong>SisFolgas</strong> • Período: <strong>${ValidationService.formatCompetencia('2026-11')} ABERTO</strong>
           </div>
         </div>
 

@@ -223,7 +223,7 @@
       const queue = state.queues[myTeam];
 
       // KPI Competência
-      document.getElementById('kpi-competencia').textContent = p ? p.competencia : 'Nenhum';
+      document.getElementById('kpi-competencia').textContent = p ? formatCompetencia(p.competencia) : 'Nenhum';
       document.getElementById('kpi-periodo-status').textContent = p ? `Período ${p.status}` : 'Sem período aberto';
 
       // KPI Minha Equipe
@@ -489,6 +489,22 @@
       return isoStr;
     }
 
+    function formatCompetencia(comp) {
+      if (!comp || comp === '--') return '--';
+      const clean = String(comp).trim().toUpperCase().replace('/', '');
+      const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)(\d{2})$/);
+      if (milMatch) return clean;
+
+      const isoMatch = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+      if (isoMatch) {
+        const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+        const monthIdx = parseInt(isoMatch[2], 10) - 1;
+        const yearShort = isoMatch[1].slice(-2);
+        return `${months[monthIdx]}${yearShort}`;
+      }
+      return comp;
+    }
+
     /* ==========================================================================
        CARREGAMENTO DE SOLICITAÇÕES DE ACÚMULO (ADMIN / GESTOR)
        ========================================================================== */
@@ -536,7 +552,7 @@
           <tr>
             <td><strong>${r.militar_nome || (r.graduacao + ' ' + r.nome_guerra) || r.militar_id}</strong></td>
             <td>${r.equipe || '--'}</td>
-            <td><code>${r.competencia || '--'}</code></td>
+            <td><code>${formatCompetencia(r.competencia)}</code></td>
             <td style="font-size: 0.85rem; color: var(--text-secondary);">${r.justificativa || '--'}</td>
             <td style="font-size: 0.8rem;">${new Date(r.criado_em || r.data_criacao || Date.now()).toLocaleDateString('pt-BR')}</td>
             <td style="text-align: center;">
