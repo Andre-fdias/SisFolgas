@@ -143,9 +143,10 @@
         renderTeamQueue();
         renderChoiceTab();
 
-        // Se perfil administrativo, carrega solicitações de acúmulo
+        // Se perfil administrativo, carrega solicitações de acúmulo e permutas
         if (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR') {
           loadPendingAccumulateRequests();
+          loadPendingSwaps();
           populateNaoFazJusMilitaries();
         }
 
@@ -569,6 +570,37 @@
       }
     }
 
+    async function loadPendingSwaps() {
+      try {
+        const tbody = document.getElementById('pending-swaps-table-body');
+        if (!tbody) return;
+
+        const requests = await callServer('apiAdminGetPendingSwaps', null, 'Consultando permutas pendentes...');
+        if (!requests || requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma permuta pendente de homologação no momento.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = requests.map(r => `
+          <tr>
+            <td><strong>${r.militar_origem_nome}</strong> (${r.equipe_origem})<br><small style="color: var(--brand-amber);">Data Atual: ${formatDate(r.data_origem)}</small></td>
+            <td><strong>${r.militar_destino_nome}</strong> (${r.equipe_destino})<br><small style="color: var(--brand-teal);">Data Atual: ${formatDate(r.data_destino)}</small></td>
+            <td style="font-size: 0.85rem; color: var(--text-secondary);">${r.justificativa || '--'}</td>
+            <td style="font-size: 0.8rem;">${new Date(r.data_solicitacao || Date.now()).toLocaleDateString('pt-BR')}</td>
+            <td style="text-align: center;">
+              <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; background: #10b981; border-color: #059669;" onclick="App.approveSwap('${r.permuta_id}')">✓ Homologar</button>
+                <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="App.openRejectSwap('${r.permuta_id}')">✕ Recusar</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        console.error('Erro ao buscar permutas pendentes:', err);
+      }
+    }
+
     function populateNaoFazJusMilitaries() {
       const teamSelect = document.getElementById('nao-faz-jus-team-select');
       const milSelect = document.getElementById('nao-faz-jus-militar-select');
@@ -604,6 +636,7 @@
 
           if (btn.getAttribute('data-tab') === 'tab-gestor') {
             loadPendingAccumulateRequests();
+            loadPendingSwaps();
             populateNaoFazJusMilitaries();
           }
         });
@@ -782,6 +815,7 @@
             opt.value = c.militar_id;
             opt.textContent = `${c.graduacao} ${c.nome_guerra} (Folga em ${formatDate(c.data_folga)})`;
             opt.dataset.dataFolga = c.data_folga;
+            opt.dataset.escolhaId = c.escolha_id;
             sel.appendChild(opt);
           });
         }
@@ -800,7 +834,10 @@
       });
 
       document.getElementById('btn-modal-confirm-permuta')?.addEventListener('click', async () => {
-        const colegaId = document.getElementById('permuta-colega-select').value;
+        const sel = document.getElementById('permuta-colega-select');
+        const colegaId = sel.value;
+        const selectedOpt = sel.options[sel.selectedIndex];
+        const escolhaDestinoId = selectedOpt ? selectedOpt.dataset.escolhaId : null;
         const just = document.getElementById('permuta-justificativa').value.trim();
 
         if (!colegaId) {
@@ -812,11 +849,12 @@
           await callServer('apiRequestSwap', {
             escolha_origem_id: state.myChoice.escolha_id || state.myChoice.id,
             militar_destino_id: colegaId,
+            escolha_destino_id: escolhaDestinoId,
             justificativa: just
           }, 'Registrando solicitação de permuta mútua...');
 
           document.getElementById('modal-permuta-militar').classList.remove('active');
-          showToast('Permuta solicitada com sucesso! Aguardando homologação.', 'success');
+          showToast('Permuta solicitada com sucesso! Aguardando homologação do Gestor.', 'success');
           await loadInitialState();
         } catch (err) {}
       });
@@ -881,6 +919,38 @@
       // Botão de Atualizar Solicitações de Acúmulo
       document.getElementById('btn-refresh-pending-accumulate')?.addEventListener('click', () => {
         loadPendingAccumulateRequests();
+      });
+
+      // Botão de Atualizar Permutas Pendentes
+      document.getElementById('btn-refresh-pending-swaps')?.addEventListener('click', () => {
+        loadPendingSwaps();
+      });
+
+      // Modal de Recusa de Permuta
+      document.getElementById('btn-modal-close-recusar-permuta')?.addEventListener('click', () => {
+        document.getElementById('modal-recusar-permuta').classList.remove('active');
+      });
+
+      document.getElementById('btn-modal-confirm-recusar-permuta')?.addEventListener('click', async () => {
+        const permutaId = document.getElementById('recusar-permuta-id').value;
+        const motivo = document.getElementById('recusar-permuta-motivo').value.trim();
+
+        if (!motivo) {
+          showToast('Informe o motivo formal da recusa da permuta.', 'error');
+          return;
+        }
+
+        try {
+          await callServer('apiAdminRejectSwap', {
+            permuta_id: permutaId,
+            motivo: motivo
+          }, 'Registrando recusa de permuta...');
+
+          document.getElementById('modal-recusar-permuta').classList.remove('active');
+          showToast('Solicitação de permuta recusada.', 'info');
+          await loadInitialState();
+          await loadPendingSwaps();
+        } catch (err) {}
       });
     }
 
@@ -1012,10 +1082,27 @@
       document.getElementById('modal-recusar-acumulo').classList.add('active');
     }
 
+    // Ações globais para botões de homologação de permuta
+    async function approveSwap(permutaId) {
+      try {
+        await callServer('apiApproveSwap', { permuta_id: permutaId }, 'Homologando permuta de folgas...');
+        showToast('Permuta homologada com sucesso! As datas foram trocadas entre os militares.', 'success');
+        await loadInitialState();
+        await loadPendingSwaps();
+      } catch (err) {}
+    }
+
+    function openRejectSwap(permutaId) {
+      document.getElementById('recusar-permuta-id').value = permutaId;
+      document.getElementById('modal-recusar-permuta').classList.add('active');
+    }
+
     return {
       init: init,
       approveAccumulate: approveAccumulate,
-      openRejectAccumulate: openRejectAccumulate
+      openRejectAccumulate: openRejectAccumulate,
+      approveSwap: approveSwap,
+      openRejectSwap: openRejectSwap
     };
   })();
 

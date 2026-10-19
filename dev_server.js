@@ -189,7 +189,9 @@ const server = http.createServer((req, res) => {
               'apiAdminSetNaoFazJus',
               'apiAdminApproveAccumulateLeave',
               'apiAdminRejectAccumulateLeave',
-              'apiAdminGetPendingAccumulateRequests'
+              'apiAdminGetPendingAccumulateRequests',
+              'apiAdminGetPendingSwaps',
+              'apiAdminRejectSwap'
             ];
 
             function createRunner(successFn, failureFn) {

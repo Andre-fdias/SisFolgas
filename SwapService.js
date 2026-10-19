@@ -13,18 +13,33 @@ const SwapService = (function() {
 
       const escolhaOrigemId = ValidationService.validateUuid(data.escolha_origem_id, 'Escolha de Origem');
       const militarDestinoId = ValidationService.validateUuid(data.militar_destino_id, 'Militar de Destino');
-      const escolhaDestinoId = ValidationService.validateUuid(data.escolha_destino_id, 'Escolha de Destino');
-      const justificativa = ValidationService.sanitizeString(data.justificativa);
-
-      if (!justificativa) throw new Error('Justificativa é obrigatória para solicitação de permuta.');
-
-      // Garante que a solicitação ocorre dentro da janela regulamentar (01 a 16)
-      ChoiceService.assertWithinChoiceWindow();
 
       const escolhaOrigem = Repository.findOne(Config.SHEETS.ESCOLHAS, 'escolha_id', escolhaOrigemId);
       if (!escolhaOrigem || escolhaOrigem.status !== Config.CHOICE_STATUS.ATIVA) {
         throw new Error('Sua escolha de folga informada não está ativa.');
       }
+
+      // Se escolha_destino_id não foi passado diretamente, localiza automaticamente a escolha ativa do militar de destino
+      let escolhaDestinoId = data.escolha_destino_id;
+      if (!escolhaDestinoId) {
+        const escolhasDestino = Repository.find(Config.SHEETS.ESCOLHAS, function(e) {
+          return e.periodo_id === escolhaOrigem.periodo_id && 
+                 e.militar_id === militarDestinoId && 
+                 e.status === Config.CHOICE_STATUS.ATIVA;
+        });
+        if (escolhasDestino.length === 0) {
+          throw new Error('O militar de destino não possui uma escolha de folga ativa nesta competência.');
+        }
+        escolhaDestinoId = escolhasDestino[0].escolha_id;
+      } else {
+        escolhaDestinoId = ValidationService.validateUuid(escolhaDestinoId, 'Escolha de Destino');
+      }
+
+      const justificativa = ValidationService.sanitizeString(data.justificativa);
+      if (!justificativa) throw new Error('Justificativa é obrigatória para solicitação de permuta.');
+
+      // Garante que a solicitação ocorre dentro da janela regulamentar (01 a 16)
+      ChoiceService.assertWithinChoiceWindow();
 
       // Garante que o solicitante é o dono da escolha de origem
       AuthService.assertCanActOnMilitary(context, escolhaOrigem.militar_id, opId);
@@ -136,6 +151,72 @@ const SwapService = (function() {
       });
 
       return updatedPermuta;
+    },
+
+    /**
+     * Retorna lista de permutas pendentes de homologação
+     */
+    getPendingSwaps: function(context) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN, Config.ROLES.GESTOR]);
+      const pendentes = Repository.find(Config.SHEETS.PERMUTAS, function(p) {
+        return p.status === Config.SWAP_STATUS.PENDENTE;
+      });
+
+      return pendentes.map(function(p) {
+        const mOrigem = MilitaryService.getById(p.militar_origem_id);
+        const mDestino = MilitaryService.getById(p.militar_destino_id);
+        const eOrigem = Repository.findOne(Config.SHEETS.ESCOLHAS, 'escolha_id', p.escolha_origem_id);
+        const eDestino = Repository.findOne(Config.SHEETS.ESCOLHAS, 'escolha_id', p.escolha_destino_id);
+
+        return {
+          permuta_id: p.permuta_id,
+          militar_origem_id: p.militar_origem_id,
+          militar_origem_nome: mOrigem ? `${mOrigem.graduacao} ${mOrigem.nome_guerra}` : p.militar_origem_id,
+          equipe_origem: mOrigem ? mOrigem.equipe : '',
+          data_origem: eOrigem ? eOrigem.data_folga : '',
+          militar_destino_id: p.militar_destino_id,
+          militar_destino_nome: mDestino ? `${mDestino.graduacao} ${mDestino.nome_guerra}` : p.militar_destino_id,
+          equipe_destino: mDestino ? mDestino.equipe : '',
+          data_destino: eDestino ? eDestino.data_folga : '',
+          justificativa: p.justificativa,
+          data_solicitacao: p.data_solicitacao,
+          status: p.status
+        };
+      });
+    },
+
+    /**
+     * Recusa formalmente uma permuta
+     */
+    rejectSwap: function(context, permutaId, motivo, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN, Config.ROLES.GESTOR], opId);
+      const cleanId = ValidationService.validateUuid(permutaId, 'ID da Permuta');
+      const cleanMotivo = ValidationService.sanitizeString(motivo || 'Recusada pelo Gestor');
+
+      const permuta = Repository.findOne(Config.SHEETS.PERMUTAS, 'permuta_id', cleanId);
+      if (!permuta || permuta.status !== Config.SWAP_STATUS.PENDENTE) {
+        throw new Error('Permuta informada não está pendente.');
+      }
+
+      const now = new Date().toISOString();
+      const updated = Repository.updateById(Config.SHEETS.PERMUTAS, 'permuta_id', cleanId, {
+        status: Config.SWAP_STATUS.RECUSADA,
+        aprovado_por: context.email,
+        data_conclusao: now,
+        motivo_recusa: cleanMotivo
+      });
+
+      AuditService.log({
+        userEmail: context.email,
+        acao: 'PERMUTA_RECUSADA',
+        entidade: 'PERMUTAS',
+        registroId: cleanId,
+        resultado: Config.AUDIT_RESULT.SUCESSO,
+        justificativa: cleanMotivo,
+        opId: opId
+      });
+
+      return updated;
     }
   };
 })();

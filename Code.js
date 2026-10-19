@@ -279,6 +279,18 @@ function apiApproveSwap(payload) {
   });
 }
 
+function apiAdminGetPendingSwaps() {
+  return runSecureRpc('adminGetPendingSwaps', function(context) {
+    return SwapService.getPendingSwaps(context);
+  });
+}
+
+function apiAdminRejectSwap(payload) {
+  return runSecureRpc('adminRejectSwap', function(context, opId) {
+    return SwapService.rejectSwap(context, payload.permuta_id, payload.motivo, opId);
+  });
+}
+
 /**
  * Troca de dia por outra vaga disponível (após todos da equipe escolherem)
  */
@@ -372,6 +384,8 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminSetNaoFazJus,
     apiAdminApproveAccumulateLeave,
     apiAdminRejectAccumulateLeave,
-    apiAdminGetPendingAccumulateRequests
+    apiAdminGetPendingAccumulateRequests,
+    apiAdminGetPendingSwaps,
+    apiAdminRejectSwap
   };
 }

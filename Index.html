@@ -240,6 +240,41 @@
           </div>
         </div>
 
+        <!-- Validação e Homologação de Permutas entre Militares -->
+        <div style="background: var(--bg-card); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 1.8rem;">🔄</span>
+              <div>
+                <h3 style="font-family: var(--font-heading); margin-bottom: 0.2rem; color: #60a5fa; font-size: 1.2rem;">Validação e Homologação de Permutas de Folga</h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                  Aprecie os pedidos de permuta direta de datas entre militares da mesma prontidão.
+                </p>
+              </div>
+            </div>
+            <button class="btn btn-secondary" id="btn-refresh-pending-swaps" style="font-size: 0.82rem; border-color: rgba(59, 130, 246, 0.5);">🔄 Atualizar Permutas</button>
+          </div>
+
+          <div class="table-container" style="background: rgba(11, 15, 25, 0.6); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>Militar Solicitante (Origem)</th>
+                  <th>Militar de Destino</th>
+                  <th>Justificativa Apresentada</th>
+                  <th>Data do Pedido</th>
+                  <th style="width: 200px; text-align: center;">Decisão Administrativa</th>
+                </tr>
+              </thead>
+              <tbody id="pending-swaps-table-body">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma permuta pendente de homologação no momento.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- 2. Registro de Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS) -->
         <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
           <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--brand-amber);">Marcar "Não Faz Jus" (Pula a Vez)</h3>
@@ -561,6 +596,29 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-modal-close-recusar-acumulo">Cancelar</button>
         <button class="btn btn-danger" id="btn-modal-confirm-recusar-acumulo">Confirmar Recusa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Recusa de Permuta pelo Admin -->
+  <div class="modal-overlay" id="modal-recusar-permuta">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Recusar Solicitação de Permuta</h3>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+          Informe o motivo formal da não homologação da permuta entre os militares.
+        </p>
+        <input type="hidden" id="recusar-permuta-id">
+        <div class="form-group">
+          <label class="form-label">Motivo da Recusa</label>
+          <textarea class="form-textarea" id="recusar-permuta-motivo" rows="3" placeholder="Ex: Incompatibilidade de postos ou necessidade de efetivo da escala."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-modal-close-recusar-permuta">Cancelar</button>
+        <button class="btn btn-danger" id="btn-modal-confirm-recusar-permuta">Confirmar Recusa</button>
       </div>
     </div>
   </div>
