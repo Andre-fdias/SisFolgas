@@ -52,6 +52,41 @@
       <button class="btn btn-primary" id="btn-goto-homologacao" style="background: linear-gradient(135deg, #7c3aed, #9333ea); font-size: 0.85rem;">Validar no Painel Operacional →</button>
     </div>
 
+    <!-- Card de Primeiro Acesso / Pré-Cadastro com RE e Nome -->
+    <section id="pre-cadastro-card" class="pre-cadastro-card" style="display: none;">
+      <div class="pre-cadastro-header">
+        <div class="pre-cadastro-icon">🪪</div>
+        <div>
+          <h2 style="font-family: var(--font-heading); font-size: 1.3rem; color: #fff;">Primeiro Acesso / Ativação de Cadastro</h2>
+          <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 0.25rem;">
+            Sua conta Google conectada: <strong id="pre-cadastro-email" style="color: #818cf8;">--</strong>. Digite seu RE e Nome para localizar seu registro no efetivo e ativar seu acesso:
+          </p>
+        </div>
+      </div>
+
+      <form id="form-pre-cadastro" class="pre-cadastro-form" onsubmit="event.preventDefault(); submitPreCadastro();">
+        <div class="form-row-grid">
+          <div class="form-group">
+            <label for="pre-cad-re" style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem; display: block;">RE do Militar (Identificador Oficial):</label>
+            <input type="text" id="pre-cad-re" class="form-control" placeholder="Ex: 10101 ou 123456" required autocomplete="off" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid rgba(99, 102, 241, 0.4); color: #fff; padding: 0.75rem 1rem; border-radius: var(--radius-sm); width: 100%; font-size: 0.95rem;">
+            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.35rem; display: block;">Digite o seu RE conforme consta na Coluna B da planilha.</small>
+          </div>
+          <div class="form-group">
+            <label for="pre-cad-nome" style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem; display: block;">Nome (Nome de Guerra ou Nome Completo):</label>
+            <input type="text" id="pre-cad-nome" class="form-control" placeholder="Ex: Silva, Oliveira ou Carlos Eduardo Silva" required autocomplete="off" style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid rgba(99, 102, 241, 0.4); color: #fff; padding: 0.75rem 1rem; border-radius: var(--radius-sm); width: 100%; font-size: 0.95rem;">
+            <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.35rem; display: block;">Nome cadastrado para verificação de identidade.</small>
+          </div>
+        </div>
+
+        <div class="pre-cadastro-actions">
+          <button type="submit" class="btn btn-primary" id="btn-submit-pre-cadastro" style="background: linear-gradient(135deg, #4f46e5, #6366f1); font-weight: 700; padding: 0.75rem 1.75rem; font-size: 0.95rem; cursor: pointer;">
+            🚀 Ativar Meu Acesso
+          </button>
+          <span id="pre-cad-status" style="display: none; font-size: 0.85rem; font-weight: 600;"></span>
+        </div>
+      </form>
+    </section>
+
     <!-- KPI Metric Cards -->
     <section class="kpi-grid">
       <div class="kpi-card">

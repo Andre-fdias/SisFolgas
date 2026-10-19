@@ -138,6 +138,8 @@ const AuthService = (function() {
         AuditService.logSecurityEvent('UNREGISTERED_ACCESS_ATTEMPT', { email: email }, email);
         return {
           authenticated: false,
+          email: email,
+          isOwner: isOwner,
           user: null,
           militar: null,
           perfil: null,

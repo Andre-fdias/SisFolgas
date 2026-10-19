@@ -175,4 +175,53 @@ test('1. Endpoints RPC em Code.js - Resposta Envelopada e Tratamento Seguro de E
     assert.ok(res.error.message.includes('Acesso negado'));
     assert.ok(res.opId !== undefined);
   });
+
+  // Cadastra militar pendente de ativação para teste de pré-cadastro
+  Repository.insert(Config.SHEETS.MILITARES, {
+    militar_id: '44401',
+    re: '44401',
+    nome_completo: 'Fabio Lucas Santos',
+    nome_guerra: 'Lucas',
+    graduacao: 'Sd PM',
+    equipe: 'Equipe B',
+    ordem_antiguidade: 2,
+    email_vinculado: '',
+    ativo: true
+  });
+
+  await t.test('apiPreCadastroMilitar: rejeita RE inexistente no efetivo', () => {
+    AuthService.setEmailOverride('novato@gmail.com');
+    const res = Code.apiPreCadastroMilitar({ re: '99999', nome: 'Inexistente' });
+    assert.equal(res.success, false);
+    assert.ok(res.error.message.includes('não foi localizado no efetivo'));
+  });
+
+  await t.test('apiPreCadastroMilitar: rejeita RE existente quando o nome informado não confere', () => {
+    AuthService.setEmailOverride('novato@gmail.com');
+    const res = Code.apiPreCadastroMilitar({ re: '44401', nome: 'Albuquerque Totalmente Diferente' });
+    assert.equal(res.success, false);
+    assert.ok(res.error.message.includes('não confere com o cadastro'));
+  });
+
+  await t.test('apiPreCadastroMilitar: ativa cadastro com sucesso por RE e Nome, concedendo acesso imediato', () => {
+    AuthService.setEmailOverride('lucas.bombeiro.sp@gmail.com');
+    // RE 44401 é Fabio Lucas Santos (Guerra: Lucas)
+    const res = Code.apiPreCadastroMilitar({ re: '44401', nome: 'Lucas' });
+    assert.equal(res.success, true);
+    assert.ok(res.data.mensagem.includes('Acesso ativado com sucesso'));
+
+    // Verifica se criou usuário em USUARIOS com militar_id = RE
+    const userInDb = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', 'lucas.bombeiro.sp@gmail.com');
+    assert.ok(userInDb !== null);
+    assert.equal(userInDb.militar_id, '44401');
+    assert.equal(userInDb.perfil, Config.ROLES.MILITAR);
+
+    // Verifica se apiGetInitialState agora reconhece a sessão como autenticada
+    const stateRes = Code.apiGetInitialState();
+    assert.equal(stateRes.success, true);
+    assert.equal(stateRes.data.authenticated, true);
+    assert.equal(stateRes.data.user.email, 'lucas.bombeiro.sp@gmail.com');
+    assert.equal(stateRes.data.user.militar.re, '44401');
+    assert.equal(stateRes.data.user.militar.nome_guerra, 'Lucas');
+  });
 });

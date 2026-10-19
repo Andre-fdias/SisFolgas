@@ -151,6 +151,7 @@ const server = http.createServer((req, res) => {
               <option value="costa.teste@gmail.com">👨‍🚒 3º Sgt Costa (Equipe A - 3º Antiguidade)</option>
               <option value="ribeiro.teste@gmail.com">👨‍🚒 SubTen Ribeiro (Equipe B - 1º Antiguidade)</option>
               <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin.cbm@gmail.com)</option>
+              <option value="novato.bombeiro@gmail.com">🆕 Militar Primeiro Acesso (Pré-Cadastro)</option>
             </select>
 
             <button id="btn-quick-switch-admin" style="background: #4338ca; color: #fff; border: 1px solid #818cf8; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
@@ -195,6 +196,7 @@ const server = http.createServer((req, res) => {
               'apiAdminGetPendingSwaps',
               'apiAdminRejectSwap',
               'apiLinkGoogleToMilitary',
+              'apiPreCadastroMilitar',
               'apiGetAllMilitares'
             ];
 

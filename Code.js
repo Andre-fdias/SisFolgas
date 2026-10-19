@@ -224,6 +224,117 @@ function apiLinkGoogleToMilitary(payload) {
   });
 }
 
+/**
+ * Pré-cadastro e ativação de acesso de militar por RE e Nome
+ * Se o militar existir na aba MILITARES e o nome conferir, o vínculo com a conta Google é realizado
+ * e o cadastro em USUARIOS é ativado para permitir o login e acesso ao sistema.
+ */
+function apiPreCadastroMilitar(payload) {
+  return runSecureRpc('preCadastroMilitar', function(context, opId) {
+    if (!payload || !payload.re || !payload.nome) {
+      throw new Error('Informe o RE e o Nome para realizar a ativação do seu cadastro.');
+    }
+
+    const email = context.email || AuthService.getAuthenticatedEmail();
+    if (!email) {
+      throw new Error('Sessão Google não identificada. É necessário estar conectado a uma conta Google.');
+    }
+
+    const cleanRe = ValidationService.normalizeRE(payload.re);
+    
+    // Busca na aba MILITARES por RE (coluna B / militar_id)
+    const militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+    if (!militar || militar.ativo === false) {
+      throw new Error(`Militar com RE '${cleanRe}' não foi localizado no efetivo cadastrado. Verifique o número digitado.`);
+    }
+
+    // Validação flexível e segura por Nome (Guerra ou Completo)
+    const normalizeStr = function(s) {
+      return (s || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, ' ')
+        .trim();
+    };
+
+    const inputNameNorm = normalizeStr(payload.nome);
+    const warNameNorm = normalizeStr(militar.nome_guerra);
+    const fullNameNorm = normalizeStr(militar.nome_completo);
+
+    const inputTokens = inputNameNorm.split(/\s+/).filter(t => t.length >= 2);
+    const fullTokens = fullNameNorm.split(/\s+/).filter(t => t.length >= 2);
+    const warTokens = warNameNorm.split(/\s+/).filter(t => t.length >= 2);
+
+    const matchesWar = warNameNorm.includes(inputNameNorm) || inputNameNorm.includes(warNameNorm);
+    const matchesFull = fullNameNorm.includes(inputNameNorm) || inputNameNorm.includes(fullNameNorm);
+    const hasTokenMatch = inputTokens.some(t => fullTokens.includes(t) || warTokens.includes(t));
+
+    if (!matchesWar && !matchesFull && !hasTokenMatch) {
+      throw new Error(`O nome informado '${payload.nome}' não confere com o cadastro do RE ${cleanRe}. Informe seu nome de guerra ou nome completo.`);
+    }
+
+    // Se já estiver vinculado a outro e-mail ativo diferente
+    if (militar.email_vinculado && militar.email_vinculado.toLowerCase() !== email.toLowerCase()) {
+      const otherUser = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', militar.email_vinculado);
+      if (otherUser && otherUser.ativo) {
+        throw new Error(`Este militar já está vinculado à conta Google '${militar.email_vinculado}'. Se precisar alterar, procure o Administrador.`);
+      }
+    }
+
+    // 1. Atualiza na aba MILITARES
+    Repository.updateById(Config.SHEETS.MILITARES, 're', cleanRe, {
+      email_vinculado: email,
+      atualizado_em: new Date().toISOString()
+    });
+
+    // 2. Cria ou atualiza o usuário na aba USUARIOS
+    const isOwner = Boolean(context.isOwner);
+    const existingUser = Repository.findOne(Config.SHEETS.USUARIOS, 'email_google', email);
+    let targetRole = Config.ROLES.MILITAR;
+    if (isOwner || (existingUser && existingUser.perfil === Config.ROLES.ADMIN)) {
+      targetRole = Config.ROLES.ADMIN;
+    }
+
+    if (existingUser) {
+      Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', existingUser.usuario_id, {
+        militar_id: cleanRe,
+        perfil: targetRole,
+        ativo: true,
+        atualizado_em: new Date().toISOString()
+      });
+    } else {
+      Repository.insert(Config.SHEETS.USUARIOS, {
+        usuario_id: ValidationService.generateUuid(),
+        email_google: email,
+        militar_id: cleanRe,
+        perfil: targetRole,
+        ativo: true,
+        criado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString()
+      });
+    }
+
+    // 3. Auditoria do Pré-Cadastro
+    AuditService.log({
+      userEmail: email,
+      militarId: cleanRe,
+      acao: 'PRE_CADASTRO_ATIVACAO',
+      entidade: 'USUARIOS',
+      registroId: cleanRe,
+      resultado: Config.AUDIT_RESULT.SUCESSO,
+      justificativa: `Pré-cadastro realizado: militar ${militar.graduacao} ${militar.nome_guerra} (RE ${cleanRe}) ativado para a conta Google ${email}`,
+      opId: opId
+    });
+
+    return {
+      success: true,
+      militar: ValidationService.sanitizeMilitaryDto(militar, true),
+      mensagem: `Acesso ativado com sucesso! Bem-vindo(a), ${militar.graduacao} ${militar.nome_guerra}.`
+    };
+  });
+}
+
 function apiGetAllMilitares() {
   return runSecureRpc('getAllMilitares', function(context) {
     const isAdmin = context.perfil === Config.ROLES.ADMIN;
@@ -498,6 +609,7 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminGetPendingSwaps,
     apiAdminRejectSwap,
     apiLinkGoogleToMilitary,
+    apiPreCadastroMilitar,
     apiGetAllMilitares,
     setupInicializarSistema,
     setupCriarApenasAbas,

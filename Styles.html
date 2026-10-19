@@ -717,6 +717,57 @@
     border: 1px solid rgba(147, 51, 234, 0.35);
   }
 
+  /* Card de Pré-Cadastro e Ativação de Acesso */
+  .pre-cadastro-card {
+    background: linear-gradient(135deg, rgba(30, 27, 75, 0.95), rgba(17, 24, 39, 0.95));
+    border: 1.5px solid rgba(99, 102, 241, 0.5);
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.25);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem 2rem;
+    margin-bottom: 2rem;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .pre-cadastro-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pre-cadastro-icon {
+    font-size: 2.2rem;
+    width: 58px;
+    height: 58px;
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .pre-cadastro-form .form-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .pre-cadastro-form .form-row-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pre-cadastro-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
   /* Responsive Adjustments */
   @media (max-width: 768px) {
     .header-container { flex-direction: column; gap: 0.75rem; align-items: flex-start; }

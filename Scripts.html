@@ -126,6 +126,22 @@
         state.queues = data.queues || {};
         state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
 
+        const preCadCard = document.getElementById('pre-cadastro-card');
+        const preCadEmail = document.getElementById('pre-cadastro-email');
+
+        if (!data.authenticated || !data.user || !data.user.militar) {
+          if (preCadCard) {
+            preCadCard.style.display = 'block';
+            if (preCadEmail) {
+              preCadEmail.textContent = data.email || (data.user && data.user.email) || 'Conta Google Conectada';
+            }
+          }
+        } else {
+          if (preCadCard) {
+            preCadCard.style.display = 'none';
+          }
+        }
+
         if (!data.authenticated) {
           state.authenticated = false;
           state.user = {
@@ -141,7 +157,7 @@
           renderTeamQueue();
           renderChoiceTab();
           renderMilitaresList();
-          showToast('Conectado ao Google. Escolha seu RE na aba "Efetivo de Militares" para vincular.', 'info');
+          showToast('Conectado ao Google. Informe seu RE e Nome no Pré-Cadastro para ativar seu acesso.', 'info');
           return;
         }
 
@@ -241,7 +257,7 @@
         } else if (isAdmin) {
           actionHtml = `<button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.vincularMilitar('${displayRe}', '${m.nome_guerra}')">✏️ Vincular E-mail</button>`;
         } else if (!hasEmail) {
-          actionHtml = `<button class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.vincularMeuGoogle('${displayRe}', '${m.nome_guerra}')">⚡ Vincular Meu Google</button>`;
+          actionHtml = `<button class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.preencherPreCadastro('${displayRe}', '${m.nome_guerra}')">⚡ Ativar Meu Acesso</button>`;
         } else {
           actionHtml = `<span style="color: var(--text-muted); font-size: 0.78rem;">Vinculado</span>`;
         }
@@ -1261,6 +1277,60 @@
       } catch (e) {}
     }
 
+    async function submitPreCadastro() {
+      const reInput = document.getElementById('pre-cad-re');
+      const nomeInput = document.getElementById('pre-cad-nome');
+      const statusSpan = document.getElementById('pre-cad-status');
+      const btnSubmit = document.getElementById('btn-submit-pre-cadastro');
+
+      const re = (reInput.value || '').trim();
+      const nome = (nomeInput.value || '').trim();
+
+      if (!re || !nome) {
+        showToast('Informe o RE e o Nome para realizar a ativação do seu acesso.', 'warning');
+        return;
+      }
+
+      try {
+        btnSubmit.disabled = true;
+        statusSpan.style.display = 'inline';
+        statusSpan.style.color = '#818cf8';
+        statusSpan.textContent = 'Verificando cadastro militar no banco de dados...';
+
+        const res = await callServer('apiPreCadastroMilitar', { re: re, nome: nome }, 'Validando cadastro militar...');
+
+        statusSpan.style.color = '#34d399';
+        statusSpan.textContent = res.mensagem || 'Acesso ativado com sucesso!';
+        showToast(res.mensagem || 'Acesso ativado com sucesso!', 'success');
+
+        // Recarrega o estado do sistema e atualiza todas as visualizações
+        setTimeout(async () => {
+          await loadInitialState();
+        }, 600);
+
+      } catch (err) {
+        statusSpan.style.display = 'inline';
+        statusSpan.style.color = '#f87171';
+        statusSpan.textContent = err.message || 'Falha ao ativar o cadastro.';
+      } finally {
+        btnSubmit.disabled = false;
+      }
+    }
+
+    function preencherPreCadastro(re, nomeGuerra) {
+      const card = document.getElementById('pre-cadastro-card');
+      const reInput = document.getElementById('pre-cad-re');
+      const nomeInput = document.getElementById('pre-cad-nome');
+      if (card && reInput && nomeInput) {
+        card.style.display = 'block';
+        reInput.value = re;
+        nomeInput.value = nomeGuerra;
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        reInput.focus();
+        showToast(`RE ${re} e Nome ${nomeGuerra} preenchidos. Clique em "Ativar Meu Acesso".`, 'info');
+      }
+    }
+
     return {
       init: init,
       approveAccumulate: approveAccumulate,
@@ -1268,9 +1338,16 @@
       approveSwap: approveSwap,
       openRejectSwap: openRejectSwap,
       vincularMeuGoogle: vincularMeuGoogle,
-      vincularMilitar: vincularMilitar
+      vincularMilitar: vincularMilitar,
+      submitPreCadastro: submitPreCadastro,
+      preencherPreCadastro: preencherPreCadastro
     };
   })();
+
+  // Torna submitPreCadastro disponível globalmente para o form onsubmit
+  window.submitPreCadastro = function() {
+    App.submitPreCadastro();
+  };
 
   // Inicializa o aplicativo após carregamento do DOM
   if (document.readyState === 'loading') {
