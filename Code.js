@@ -50,6 +50,34 @@ function include(filename) {
 }
 
 /**
+ * ============================================================================
+ * FUNÇÃO DE INICIALIZAÇÃO DO SISTEMA NO GOOGLE APPS SCRIPT
+ * Selecione 'setupInicializarSistema' no menu superior e clique em 'Executar'
+ * ============================================================================
+ */
+function setupInicializarSistema() {
+  Logger.log('1. Inicializando esquema de abas do banco de dados na Planilha...');
+  const resBanco = Repository.initializeSchema();
+  Logger.log('Estrutura do banco criada: ' + JSON.stringify(resBanco));
+
+  Logger.log('2. Carregando dados de teste (21 militares fictícios e administrador)...');
+  const resSeed = SeedData.populateTestData();
+  Logger.log('Carga inicial: ' + JSON.stringify(resSeed));
+
+  Logger.log('✅ Sistema SisFolgas inicializado com sucesso na planilha!');
+}
+
+function setupCriarApenasAbas() {
+  Repository.initializeSchema();
+  Logger.log('✅ As 9 abas do banco foram criadas com sucesso na planilha!');
+}
+
+function setupPopularApenasMilitares() {
+  SeedData.populateTestData();
+  Logger.log('✅ Militares de teste cadastrados com sucesso!');
+}
+
+/**
  * Wrapper de execução segura para todas as chamadas remotas (RPC Envelope)
  */
 function runSecureRpc(actionName, fn) {
@@ -386,6 +414,9 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminRejectAccumulateLeave,
     apiAdminGetPendingAccumulateRequests,
     apiAdminGetPendingSwaps,
-    apiAdminRejectSwap
+    apiAdminRejectSwap,
+    setupInicializarSistema,
+    setupCriarApenasAbas,
+    setupPopularApenasMilitares
   };
 }
