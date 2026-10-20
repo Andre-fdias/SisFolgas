@@ -208,6 +208,7 @@
 
       } catch (err) {
         console.error('Erro ao inicializar estado:', err);
+        renderUserInfo();
       }
     }
 
@@ -1536,6 +1537,11 @@
         const res = await callServer('apiLogin', { re: re, senha: senha || re }, 'Autenticando...');
         const resolvedRe = (res && res.militar && res.militar.re) ? res.militar.re : re;
         localStorage.setItem('sisfolgas_session_re', resolvedRe);
+        if (res && res.user) {
+          state.authenticated = true;
+          state.user = res.user;
+          renderUserInfo();
+        }
         fecharModalLogin();
         showToast(`Bem-vindo, ${res && res.militar ? res.militar.nome_guerra : resolvedRe}!`, 'success');
         await loadInitialState();

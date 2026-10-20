@@ -169,41 +169,8 @@ const server = http.createServer((req, res) => {
         <script>
           // Ponte robusta e concorrente do google.script.run para o servidor local
           (function() {
-            const exposedMethods = [
-              'apiLogin',
-              'apiAlterarSenha',
-              'apiLogout',
-              'apiGetInitialState',
-              'apiGetTeamQueue',
-              'apiMakeChoice',
-              'apiCancelChoice',
-              'apiPassTurn',
-              'apiAdminSaveMilitary',
-              'apiAdminCreatePeriod',
-              'apiAdminChangePeriodStatus',
-              'apiAdminGetOperationalReport',
-              'apiAdminGetAuditLogs',
-              'apiAdminRunDiagnostics',
-              'apiAdminRunBackup',
-              'apiGrantCredit',
-              'apiRegisterLeave',
-              'apiRequestSwap',
-              'apiApproveSwap',
-              'apiChangeChoiceToAvailableDate',
-              'apiRequestAccumulateLeave',
-              'apiAdminSetNaoFazJus',
-              'apiAdminApproveAccumulateLeave',
-              'apiAdminRejectAccumulateLeave',
-              'apiAdminGetPendingAccumulateRequests',
-              'apiAdminGetPendingSwaps',
-              'apiAdminRejectSwap',
-              'apiLinkGoogleToMilitary',
-              'apiPreCadastroMilitar',
-              'apiGetAllMilitares'
-            ];
-
             function createRunner(successFn, failureFn) {
-              const runner = {
+              const base = {
                 withSuccessHandler: function(fn) {
                   return createRunner(fn, failureFn);
                 },
@@ -212,29 +179,30 @@ const server = http.createServer((req, res) => {
                 }
               };
 
-              exposedMethods.forEach(method => {
-                runner[method] = function(payload) {
-                  fetch('/api/rpc', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: method, payload: payload })
-                  })
-                  .then(r => r.json())
-                  .then(res => {
-                    if (res && res.success) {
-                      if (typeof successFn === 'function') successFn(res);
-                    } else {
-                      const err = new Error(res && res.error ? res.error.message : 'Falha na requisição');
+              return new Proxy(base, {
+                get(target, prop) {
+                  if (prop in target) return target[prop];
+                  return function(payload) {
+                    fetch('/api/rpc', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: prop, payload: payload })
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                      if (res && res.success) {
+                        if (typeof successFn === 'function') successFn(res);
+                      } else {
+                        const err = new Error(res && res.error ? res.error.message : 'Falha na requisição');
+                        if (typeof failureFn === 'function') failureFn(err);
+                      }
+                    })
+                    .catch(err => {
                       if (typeof failureFn === 'function') failureFn(err);
-                    }
-                  })
-                  .catch(err => {
-                    if (typeof failureFn === 'function') failureFn(err);
-                  });
-                };
+                    });
+                  };
+                }
               });
-
-              return runner;
             }
 
             window.google = {
