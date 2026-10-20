@@ -27,16 +27,32 @@ if (typeof module !== 'undefined' && module.exports) {
  */
 function doGet(e) {
   try {
+    const appTitle = (typeof Config !== 'undefined' && Config.APP_NAME) ? Config.APP_NAME : 'Sistema de Escolha de Folgas - CBM';
     const template = HtmlService.createTemplateFromFile('Index');
     return template.evaluate()
-      .setTitle(Config.APP_NAME)
+      .setTitle(appTitle)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } catch (err) {
+    Logger.log('Erro de Inicialização no doGet: ' + (err ? (err.stack || err.message) : err));
+    const detalhesErro = err ? (err.stack || err.message || String(err)) : 'Erro desconhecido';
     return HtmlService.createHtmlOutput(`
-      <div style="font-family: sans-serif; padding: 2rem; text-align: center; color: #b91c1c;">
-        <h2>Erro de Inicialização do Sistema</h2>
-        <p>Não foi possível carregar a aplicação. Por favor, contate o administrador do sistema.</p>
+      <div style="font-family: system-ui, -apple-system, sans-serif; padding: 2.5rem 1.5rem; max-width: 750px; margin: 2rem auto; color: #1e293b; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <span style="font-size: 2rem;">🚒</span>
+          <h2 style="margin: 0; color: #b91c1c; font-size: 1.4rem;">Erro de Inicialização do Sistema</h2>
+        </div>
+        <p style="color: #475569; font-size: 0.95rem; line-height: 1.5;">
+          Não foi possível inicializar a interface web no Google Apps Script.
+        </p>
+        <div style="margin-top: 1.25rem;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem;">Detalhes Técnicos:</div>
+          <pre style="text-align: left; background: #fef2f2; color: #991b1b; padding: 1.2rem; border-radius: 8px; overflow: auto; border: 1px solid #fecaca; font-size: 0.85rem; line-height: 1.5; font-family: Consolas, Monaco, monospace; white-space: pre-wrap;">${detalhesErro}</pre>
+        </div>
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #94a3b8;">
+          <span>Código: CBM-INIT-TRACE</span>
+          <span>SisFolgas CBM</span>
+        </div>
       </div>
     `);
   }
@@ -46,7 +62,12 @@ function doGet(e) {
  * Helper para inclusão de componentes HTML modulares (Styles, Scripts)
  */
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  try {
+    return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  } catch (err) {
+    Logger.log('Erro ao incluir template modular ' + filename + ': ' + (err ? err.stack || err.message : err));
+    return '<!-- Erro ao incluir ' + filename + ': ' + (err ? err.message : '') + ' -->';
+  }
 }
 
 /**
