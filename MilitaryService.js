@@ -11,7 +11,10 @@ const MilitaryService = (function() {
      */
     getAllActive: function(unidadeFilter, prontidaoFilter) {
       let militares = Repository.find(Config.SHEETS.MILITARES, function(m) {
-        return m.ativo === true;
+        if (typeof ValidationService !== 'undefined' && ValidationService.normalizeMilitary) {
+          ValidationService.normalizeMilitary(m);
+        }
+        return m.ativo !== false;
       });
 
       if (unidadeFilter && unidadeFilter !== 'TODAS') {
@@ -21,14 +24,14 @@ const MilitaryService = (function() {
       if (prontidaoFilter && prontidaoFilter !== 'TODAS') {
         const norm = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(prontidaoFilter) : prontidaoFilter;
         militares = militares.filter(m => {
-          const p = m.prontidao || m.equipe;
-          return p === norm || p === prontidaoFilter;
+          const p = (m.prontidao || m.equipe || '');
+          return p.toLowerCase() === norm.toLowerCase() || p.toLowerCase() === prontidaoFilter.toLowerCase();
         });
       }
 
       // REGRA: Respeita a ordem geral de antiguidade do mais antigo ao mais novo
       return militares.sort(function(a, b) {
-        return Number(a.ordem_antiguidade) - Number(b.ordem_antiguidade);
+        return (Number(a.ordem_antiguidade) || 999) - (Number(b.ordem_antiguidade) || 999);
       });
     },
 
@@ -39,12 +42,15 @@ const MilitaryService = (function() {
       if (!equipe) throw new Error('Prontidão/Equipe não informada.');
       const norm = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : equipe;
       const all = Repository.find(Config.SHEETS.MILITARES, function(m) {
-        return m.ativo === true;
+        if (typeof ValidationService !== 'undefined' && ValidationService.normalizeMilitary) {
+          ValidationService.normalizeMilitary(m);
+        }
+        return m.ativo !== false;
       });
 
       const filtered = all.filter(m => {
-        const p = m.prontidao || m.equipe;
-        const matchesTeam = (p === norm || p === equipe);
+        const p = (m.prontidao || m.equipe || '');
+        const matchesTeam = (p.toLowerCase() === norm.toLowerCase() || p.toLowerCase() === equipe.toLowerCase());
         if (!matchesTeam) return false;
         if (unidadeFilter && unidadeFilter !== 'TODAS') {
           return (m.unidade || '').toLowerCase() === unidadeFilter.toLowerCase();
@@ -53,7 +59,7 @@ const MilitaryService = (function() {
       });
 
       return filtered.sort(function(a, b) {
-        return Number(a.ordem_antiguidade) - Number(b.ordem_antiguidade);
+        return (Number(a.ordem_antiguidade) || 999) - (Number(b.ordem_antiguidade) || 999);
       });
     },
 

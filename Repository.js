@@ -124,6 +124,9 @@ const Repository = (function() {
             obj[header] = val;
           }
         }
+        if (sheetName === Config.SHEETS.MILITARES && typeof ValidationService !== 'undefined' && ValidationService.normalizeMilitary) {
+          ValidationService.normalizeMilitary(obj);
+        }
         rows.push(obj);
       }
 

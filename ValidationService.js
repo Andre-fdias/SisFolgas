@@ -222,21 +222,67 @@ const ValidationService = {
   },
 
   /**
+   * Normaliza os campos do militar contra legados da planilha (Col H situação e Col I prontidão)
+   */
+  normalizeMilitary: function(m) {
+    if (!m) return m;
+    let situacao = m.situacao;
+    let prontidao = m.prontidao;
+    let equipe = m.equipe;
+
+    // Detecta se prontidao contém status funcional (ex: "Ativa", "Ativo", "Férias", "Licença", etc.)
+    const valPront = String(prontidao || '').trim().toLowerCase();
+    const isSituacaoVal = ['ativ', 'feria', 'féria', 'licen', 'lts', 'afast', 'inativ'].some(s => valPront.includes(s));
+    
+    if (isSituacaoVal) {
+      if (!situacao) situacao = prontidao;
+      prontidao = equipe; // A verdadeira prontidão de serviço estava no campo equipe (Col I)
+    }
+
+    // Normaliza a prontidão para Verde, Amarela ou Azul
+    const normPront = this.normalizeProntidao(prontidao || equipe || 'Verde');
+
+    // Determina situação funcional
+    const valSit = String(situacao || '').trim().toUpperCase();
+    m.situacao = (valSit && valSit !== 'UNDEFINED') ? valSit : (m.ativo !== false ? 'ATIVO' : 'INATIVO');
+
+    m.prontidao = normPront;
+    m.equipe = normPront;
+
+    // Garante unidade limpa
+    m.unidade = (m.unidade && String(m.unidade).trim()) || '1º SGB';
+
+    // Garante ordem_antiguidade numérica
+    m.ordem_antiguidade = (m.ordem_antiguidade !== undefined && m.ordem_antiguidade !== null && m.ordem_antiguidade !== '')
+      ? Number(m.ordem_antiguidade)
+      : 999;
+
+    // Trata ativo como booleano (default true a menos que explicitamente inativado)
+    if (m.ativo === false || m.ativo === 'FALSE' || m.ativo === 'NÃO' || m.ativo === 'NAO') {
+      m.ativo = false;
+    } else {
+      m.ativo = true;
+    }
+
+    return m;
+  },
+
+  /**
    * Sanitiza DTO de militar para retorno seguro no cliente (Princípio do Menor Privilégio e LGPD)
    * Oculta RE completo de outros militares, e-mails privados e observações médicas restritas.
    */
   sanitizeMilitaryDto: function(militar, isCurrentUserOrAdmin) {
     if (!militar) return null;
-    const pront = militar.prontidao || militar.equipe || 'Verde';
+    this.normalizeMilitary(militar);
     return {
       militar_id: militar.militar_id,
       nome_guerra: militar.nome_guerra,
       graduacao: militar.graduacao,
-      equipe: pront,
-      prontidao: pront,
-      situacao: militar.situacao || (militar.ativo ? 'ATIVO' : 'INATIVO'),
-      unidade: militar.unidade || '1º Pelotão Bombeiros',
-      ordem_antiguidade: Number(militar.ordem_antiguidade),
+      equipe: militar.prontidao,
+      prontidao: militar.prontidao,
+      situacao: militar.situacao,
+      unidade: militar.unidade,
+      ordem_antiguidade: Number(militar.ordem_antiguidade) || 999,
       ativo: Boolean(militar.ativo),
       // Dados funcionais exibidos apenas para o próprio militar ou para a administração:
       nome_completo: isCurrentUserOrAdmin ? militar.nome_completo : undefined,
