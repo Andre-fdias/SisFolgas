@@ -5,6 +5,7 @@
 
 const AuthService = (function() {
   let _emailOverride = null; // Para suíte de testes
+  let _sessionReOverride = null; // Para sessões por RE
 
   return {
     /**
@@ -12,6 +13,13 @@ const AuthService = (function() {
      */
     setEmailOverride: function(email) {
       _emailOverride = email;
+    },
+
+    /**
+     * Permite injeção de sessão por RE
+     */
+    setSessionReOverride: function(re) {
+      _sessionReOverride = re;
     },
 
     /**
@@ -32,10 +40,232 @@ const AuthService = (function() {
     },
 
     /**
+     * Resolve o contexto completo do usuário por RE
+     */
+    getUserContextByRe: function(re) {
+      if (!re) return null;
+      let cleanRe = '';
+      try {
+        cleanRe = ValidationService.normalizeRE(re);
+      } catch (e) {
+        cleanRe = String(re).trim();
+      }
+
+      const isAdminLogin = (cleanRe.toLowerCase() === 'admin');
+
+      let user = null;
+      if (isAdminLogin) {
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN);
+      } else {
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
+      }
+
+      let militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+
+      if (!user && militar) {
+        user = {
+          usuario_id: ValidationService.generateUuid(),
+          email_google: militar.email_vinculado || `${cleanRe}@sisfolgas.local`,
+          militar_id: cleanRe,
+          senha: cleanRe, // default senha é o próprio RE
+          perfil: Config.ROLES.MILITAR,
+          ativo: true,
+          criado_em: new Date().toISOString(),
+          atualizado_em: new Date().toISOString()
+        };
+        Repository.insert(Config.SHEETS.USUARIOS, user);
+      }
+
+      if (!user) {
+        return {
+          authenticated: false,
+          user: null,
+          militar: null,
+          perfil: null,
+          permissions: [],
+          error: `Militar com RE '${cleanRe}' não possui cadastro ativo.`
+        };
+      }
+
+      const permissions = Config.ROLE_PERMISSIONS[user.perfil] || [];
+
+      return {
+        authenticated: true,
+        email: user.email_google || `${cleanRe}@sisfolgas.local`,
+        sessionRe: cleanRe,
+        isOwner: user.perfil === Config.ROLES.ADMIN,
+        usuario_id: user.usuario_id,
+        perfil: user.perfil,
+        permissions: permissions,
+        militar: militar,
+        error: null
+      };
+    },
+
+    /**
+     * Login por Usuário (RE) e Senha
+     */
+    loginWithCredentials: function(re, senha) {
+      if (!re) throw new Error('Informe o RE (usuário) para entrar.');
+      if (senha === null || senha === undefined || String(senha).trim() === '') {
+        throw new Error('Informe a senha para entrar.');
+      }
+
+      let cleanRe = '';
+      try {
+        cleanRe = ValidationService.normalizeRE(re);
+      } catch (e) {
+        cleanRe = String(re).trim();
+      }
+
+      const isAdminLogin = (cleanRe.toLowerCase() === 'admin');
+
+      let user = null;
+      if (isAdminLogin) {
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN);
+      } else {
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
+      }
+
+      let militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+
+      if (!user) {
+        if (militar) {
+          user = {
+            usuario_id: ValidationService.generateUuid(),
+            email_google: militar.email_vinculado || `${cleanRe}@sisfolgas.local`,
+            militar_id: cleanRe,
+            senha: cleanRe, // Senha default = RE
+            perfil: Config.ROLES.MILITAR,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.USUARIOS, user);
+        } else if (!isAdminLogin) {
+          throw new Error(`Militar com RE '${cleanRe}' não foi localizado no efetivo cadastrado.`);
+        }
+      }
+
+      const expectedSenha = (user && user.senha) ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
+      const inputSenha = String(senha).trim();
+
+      if (inputSenha !== expectedSenha) {
+        throw new Error('Senha incorreta. A senha padrão inicial é o seu próprio RE.');
+      }
+
+      AuditService.log({
+        userEmail: user ? user.email_google : `${cleanRe}@sisfolgas.local`,
+        militarId: cleanRe,
+        acao: 'LOGIN_SUCESSO',
+        entidade: 'USUARIOS',
+        registroId: user ? user.usuario_id : cleanRe,
+        resultado: Config.AUDIT_RESULT.SUCESSO,
+        justificativa: `Login realizado com sucesso via RE e Senha pelo militar ${cleanRe}`
+      });
+
+      return {
+        success: true,
+        authenticated: true,
+        sessionRe: cleanRe,
+        user: {
+          email: user ? user.email_google : `${cleanRe}@sisfolgas.local`,
+          perfil: user ? user.perfil : Config.ROLES.MILITAR,
+          permissions: Config.ROLE_PERMISSIONS[user ? user.perfil : Config.ROLES.MILITAR] || [],
+          militar: militar ? ValidationService.sanitizeMilitaryDto(militar, true) : null,
+          isOwner: user ? (user.perfil === Config.ROLES.ADMIN) : false
+        },
+        militar: militar ? ValidationService.sanitizeMilitaryDto(militar, true) : null,
+        mensagem: `Acesso realizado com sucesso! Bem-vindo(a), ${militar ? (militar.graduacao + ' ' + militar.nome_guerra) : 'Administrador'}.`
+      };
+    },
+
+    /**
+     * Alteração de Senha do Militar (CRUD de Senha)
+     */
+    changePassword: function(re, senhaAtual, novaSenha, confirmaSenha) {
+      if (!re) throw new Error('RE não identificado.');
+      if (!senhaAtual) throw new Error('Informe a sua senha atual.');
+      if (!novaSenha) throw new Error('Informe a nova senha desejada.');
+      if (String(novaSenha).trim().length < 3) throw new Error('A nova senha deve ter no mínimo 3 caracteres.');
+      if (String(novaSenha).trim() !== String(confirmaSenha).trim()) {
+        throw new Error('A confirmação da nova senha não confere.');
+      }
+
+      let cleanRe = '';
+      try {
+        cleanRe = ValidationService.normalizeRE(re);
+      } catch (e) {
+        cleanRe = String(re).trim();
+      }
+
+      const isAdminLogin = (cleanRe.toLowerCase() === 'admin');
+      let user = isAdminLogin 
+        ? Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN)
+        : Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
+
+      if (!user) {
+        const militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+        if (militar) {
+          user = {
+            usuario_id: ValidationService.generateUuid(),
+            email_google: militar.email_vinculado || `${cleanRe}@sisfolgas.local`,
+            militar_id: cleanRe,
+            senha: cleanRe,
+            perfil: Config.ROLES.MILITAR,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.USUARIOS, user);
+        } else {
+          throw new Error('Usuário não localizado para alteração de senha.');
+        }
+      }
+
+      const expectedSenha = user.senha ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
+      if (String(senhaAtual).trim() !== expectedSenha) {
+        throw new Error('A senha atual informada está incorreta.');
+      }
+
+      Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', user.usuario_id, {
+        senha: String(novaSenha).trim(),
+        atualizado_em: new Date().toISOString()
+      });
+
+      AuditService.log({
+        userEmail: user.email_google || `${cleanRe}@sisfolgas.local`,
+        militarId: cleanRe,
+        acao: 'ALTERACAO_SENHA',
+        entidade: 'USUARIOS',
+        registroId: user.usuario_id,
+        resultado: Config.AUDIT_RESULT.SUCESSO,
+        justificativa: `Senha alterada pelo militar RE ${cleanRe}`
+      });
+
+      return {
+        success: true,
+        mensagem: 'Senha alterada com sucesso! Utilize sua nova senha nos próximos acessos.'
+      };
+    },
+
+    /**
      * Resolve o contexto completo do usuário autenticado a partir do banco de dados
      */
-    getUserContext: function(optionalEmail) {
-      const email = optionalEmail ? ValidationService.normalizeEmail(optionalEmail) : this.getAuthenticatedEmail();
+    getUserContext: function(optionalIdentifier) {
+      if (_sessionReOverride) {
+        const reCtx = this.getUserContextByRe(_sessionReOverride);
+        if (reCtx && reCtx.authenticated) return reCtx;
+      }
+
+      if (optionalIdentifier && !String(optionalIdentifier).includes('@')) {
+        const reCtx = this.getUserContextByRe(optionalIdentifier);
+        if (reCtx && reCtx.authenticated) return reCtx;
+      }
+
+      const email = (optionalIdentifier && String(optionalIdentifier).includes('@')) 
+        ? ValidationService.normalizeEmail(optionalIdentifier) 
+        : this.getAuthenticatedEmail();
 
       if (!email) {
         return {
@@ -44,7 +274,7 @@ const AuthService = (function() {
           militar: null,
           perfil: null,
           permissions: [],
-          error: 'Sessão não identificada. É obrigatório estar conectado a uma conta Google autorizada.'
+          error: 'Sessão não identificada. Realize o login informando seu RE e senha.'
         };
       }
 

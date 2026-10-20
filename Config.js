@@ -24,25 +24,26 @@ const Config = {
   // Esquema detalhado de cabeçalhos das 9 abas
   SCHEMAS: {
     MILITARES: [
-      'militar_id',
-      're',
-      'digito_re',
-      'nome_completo',
-      'nome_guerra',
-      'graduacao',
-      'unidade',
-      'prontidao',
-      'equipe',
-      'ordem_antiguidade',
-      'email_vinculado',
-      'ativo',
-      'criado_em',
-      'atualizado_em'
+      'militar_id',        // Col A (1)
+      're',                // Col B (2)
+      'digito_re',         // Col C (3)
+      'nome_completo',     // Col D (4)
+      'nome_guerra',       // Col E (5)
+      'graduacao',         // Col F (6)
+      'unidade',           // Col G (7)
+      'situacao',          // Col H (8) - Situação funcional (Ativo, Férias, etc.)
+      'prontidao',         // Col I (9) - Prontidão de serviço (Verde, Amarela, Azul)
+      'ordem_antiguidade', // Col J (10) - Ordem geral de antiguidade
+      'email_vinculado',   // Col K (11)
+      'ativo',             // Col L (12)
+      'criado_em',         // Col M (13)
+      'atualizado_em'      // Col N (14)
     ],
     USUARIOS: [
       'usuario_id',
       'email_google',
       'militar_id',
+      'senha',
       'perfil',
       'ativo',
       'criado_em',
@@ -272,7 +273,9 @@ const Config = {
     CHOICE_WINDOW_HOURS: 24, // Janela recomendada de tempo por militar
     MAX_CHOICES_PER_PERIOD: 1, // 1 folga por competência
     SCALE_TYPE: '24x48',
-    TEAMS: ['Equipe A', 'Equipe B', 'Equipe C'],
+    TEAMS: ['Verde', 'Amarela', 'Azul'],
+    PRONTIDOES: ['Verde', 'Amarela', 'Azul'],
+    LEGACY_TEAMS: ['Equipe A', 'Equipe B', 'Equipe C'],
     // Janela regulamentar mensal de escolhas e trocas:
     CHOICE_WINDOW_START_DAY: 1,  // Início no dia 01
     CHOICE_WINDOW_END_DAY: 16    // Fim no dia 16. Do dia 17 em diante, o sistema bloqueia edição!

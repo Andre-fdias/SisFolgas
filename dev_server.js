@@ -146,12 +146,11 @@ const server = http.createServer((req, res) => {
             <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (Simulador Local CBM)</strong>
             <span>| Alternar Usuário:</span>
             <select id="dev-user-select" style="background: #312e81; color: #fff; border: 1px solid #6366f1; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;">
-              <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (Equipe A - 1º Antiguidade - É A SUA VEZ)</option>
-              <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (Equipe A - 2º Antiguidade - Aguardando)</option>
-              <option value="costa.teste@gmail.com">👨‍🚒 3º Sgt Costa (Equipe A - 3º Antiguidade)</option>
-              <option value="ribeiro.teste@gmail.com">👨‍🚒 SubTen Ribeiro (Equipe B - 1º Antiguidade)</option>
-              <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin.cbm@gmail.com)</option>
-              <option value="novato.bombeiro@gmail.com">🆕 Militar Primeiro Acesso (Pré-Cadastro)</option>
+              <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (RE 10101 • Prontidão Verde - Antiguidade Geral 1º - É A VEZ)</option>
+              <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (RE 10102 • Prontidão Verde - Antiguidade Geral 2º)</option>
+              <option value="souza.teste@gmail.com">👨‍🚒 1º Ten Souza (RE 10201 • Prontidão Amarela - Antiguidade Geral 8º - É A VEZ)</option>
+              <option value="pereira.teste@gmail.com">👨‍🚒 Cap Pereira (RE 10301 • Prontidão Azul - Antiguidade Geral 15º - É A VEZ)</option>
+              <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin)</option>
             </select>
 
             <button id="btn-quick-switch-admin" style="background: #4338ca; color: #fff; border: 1px solid #818cf8; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
@@ -171,6 +170,9 @@ const server = http.createServer((req, res) => {
           // Ponte robusta e concorrente do google.script.run para o servidor local
           (function() {
             const exposedMethods = [
+              'apiLogin',
+              'apiAlterarSenha',
+              'apiLogout',
               'apiGetInitialState',
               'apiGetTeamQueue',
               'apiMakeChoice',

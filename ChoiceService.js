@@ -81,6 +81,8 @@ const ChoiceService = (function() {
       const comp = ValidationService.validateCompetencia(competencia);
       ValidationService.assertIn(equipe, Config.DEFAULTS.TEAMS, 'Equipe');
 
+      const normEquipe = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : equipe;
+
       const parts = comp.split('-');
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
@@ -93,7 +95,10 @@ const ChoiceService = (function() {
         const monthStr = month < 10 ? '0' + month : String(month);
         const dateStr = `${year}-${monthStr}-${dayStr}`;
 
-        if (this.getTeamForDate(dateStr) === equipe) {
+        const teamOnDate = this.getTeamForDate(dateStr);
+        const normDateTeam = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(teamOnDate) : teamOnDate;
+
+        if (normDateTeam === normEquipe || teamOnDate === equipe) {
           eligibleDates.push(dateStr);
         }
       }
@@ -102,20 +107,24 @@ const ChoiceService = (function() {
     },
 
     /**
-     * Retorna o status da fila da equipe, identificando se todos já escolheram (liberando fase de trocas)
+     * Retorna o status da fila da equipe/prontidão, identificando se todos já escolheram (liberando fase de trocas)
+     * Suporta filtro opcional por unidade
      */
-    getTeamQueueStatus: function(periodoId, equipe) {
+    getTeamQueueStatus: function(periodoId, equipe, unidadeFilter) {
       ValidationService.validateUuid(periodoId, 'ID do Período');
       ValidationService.assertIn(equipe, Config.DEFAULTS.TEAMS, 'Equipe');
 
       const periodo = PeriodService.getById(periodoId);
       if (!periodo) throw new Error('Período informado não existe.');
 
-      const militares = MilitaryService.getByTeam(equipe);
+      const normEquipe = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : equipe;
+      const militares = MilitaryService.getByTeam(normEquipe, unidadeFilter);
       
       // Busca escolhas ativas ou pendentes de validação
       const escolhas = Repository.find(Config.SHEETS.ESCOLHAS, function(e) {
-        return e.periodo_id === periodoId && e.equipe === equipe && 
+        const rawEq = e.prontidao || e.equipe;
+        const ePront = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(rawEq) : rawEq;
+        return e.periodo_id === periodoId && (ePront === normEquipe || rawEq === equipe) && 
                (e.status === Config.CHOICE_STATUS.ATIVA || e.status === Config.CHOICE_STATUS.PENDENTE_VALIDACAO);
       });
 
@@ -255,9 +264,13 @@ const ChoiceService = (function() {
         if (!dataFolga.startsWith(periodo.competencia)) {
           throw new Error(`A data ${dataFolga} não pertence à competência ${periodo.competencia}.`);
         }
+        const prontidaoMilitar = militar.prontidao || militar.equipe;
+        const normProntidao = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(prontidaoMilitar) : prontidaoMilitar;
         const equipeEscalada = this.getTeamForDate(dataFolga);
-        if (equipeEscalada !== militar.equipe) {
-          throw new Error(`A data ${dataFolga} não é dia de plantão da sua equipe (${militar.equipe}). Dia escalado para a ${equipeEscalada}.`);
+        const normEscalada = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipeEscalada) : equipeEscalada;
+
+        if (normEscalada !== normProntidao && equipeEscalada !== prontidaoMilitar) {
+          throw new Error(`A data ${dataFolga} não é dia de plantão da sua prontidão (${prontidaoMilitar}). Dia escalado para a prontidão ${equipeEscalada}.`);
         }
 
         const escolhasMilitar = Repository.find(Config.SHEETS.ESCOLHAS, function(e) {
@@ -268,14 +281,15 @@ const ChoiceService = (function() {
         }
 
         const vagaOcupada = Repository.find(Config.SHEETS.ESCOLHAS, function(e) {
-          return e.periodo_id === periodoId && e.equipe === militar.equipe && e.data_folga === dataFolga && e.status === Config.CHOICE_STATUS.ATIVA;
+          const ePront = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(e.equipe) : e.equipe;
+          return e.periodo_id === periodoId && (ePront === normProntidao || e.equipe === prontidaoMilitar) && e.data_folga === dataFolga && e.status === Config.CHOICE_STATUS.ATIVA;
         });
         if (vagaOcupada.length > 0) {
-          AuditService.logConcurrencyConflict('DATE_ALREADY_TAKEN', { dataFolga, equipe: militar.equipe, militarTentou: militar.nome_guerra }, context.email, cleanOpId);
-          throw new Error(`A data ${dataFolga} já foi escolhida por outro militar da sua equipe.`);
+          AuditService.logConcurrencyConflict('DATE_ALREADY_TAKEN', { dataFolga, equipe: prontidaoMilitar, militarTentou: militar.nome_guerra }, context.email, cleanOpId);
+          throw new Error(`A data ${dataFolga} já foi escolhida por outro militar da sua prontidão.`);
         }
 
-        const queueStatus = this.getTeamQueueStatus(periodoId, militar.equipe);
+        const queueStatus = this.getTeamQueueStatus(periodoId, normProntidao, militar.unidade);
         const proximo = queueStatus.proximo_da_vez;
 
         if (!proximo || proximo.militar_id !== militarId) {
@@ -295,7 +309,8 @@ const ChoiceService = (function() {
           periodo_id: periodoId,
           militar_id: militarId,
           data_folga: dataFolga,
-          equipe: militar.equipe,
+          equipe: prontidaoMilitar,
+          prontidao: prontidaoMilitar,
           ordem_no_momento: Number(militar.ordem_antiguidade),
           status: Config.CHOICE_STATUS.ATIVA,
           justificativa_cancelamento: '',
@@ -353,15 +368,18 @@ const ChoiceService = (function() {
         AuthService.assertCanActOnMilitary(context, escolha.militar_id, cleanOpId);
 
         // Verifica se todas as escolhas da equipe estão concluídas
-        const queueStatus = this.getTeamQueueStatus(escolha.periodo_id, escolha.equipe);
+        const equipeEscolha = escolha.prontidao || escolha.equipe;
+        const normEquipe = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipeEscolha) : equipeEscolha;
+        const queueStatus = this.getTeamQueueStatus(escolha.periodo_id, normEquipe);
         if (!queueStatus.fase_trocas_liberada) {
           throw new Error('A troca de data de folga só é permitida após todos os militares da equipe concluírem suas escolhas iniciais.');
         }
 
         // Verifica se a nova data pertence à escala da equipe
         const equipeNovaData = this.getTeamForDate(cleanData);
-        if (equipeNovaData !== escolha.equipe) {
-          throw new Error(`A data ${cleanData} não é dia de plantão da sua equipe (${escolha.equipe}).`);
+        const normNovaData = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipeNovaData) : equipeNovaData;
+        if (normNovaData !== normEquipe && equipeNovaData !== equipeEscolha) {
+          throw new Error(`A data ${cleanData} não é dia de plantão da sua equipe (${equipeEscolha}).`);
         }
 
         // Verifica se a nova data está livre
@@ -419,7 +437,9 @@ const ChoiceService = (function() {
       const militar = MilitaryService.getById(militarId);
       if (!militar || !militar.ativo) throw new Error('Militar não encontrado.');
 
-      const queueStatus = this.getTeamQueueStatus(periodoId, militar.equipe);
+      const prontidaoMilitar = militar.prontidao || militar.equipe;
+      const normProntidao = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(prontidaoMilitar) : prontidaoMilitar;
+      const queueStatus = this.getTeamQueueStatus(periodoId, normProntidao, militar.unidade);
       const proximo = queueStatus.proximo_da_vez;
 
       if (!proximo || proximo.militar_id !== militarId) {
@@ -434,7 +454,8 @@ const ChoiceService = (function() {
         periodo_id: periodoId,
         militar_id: militarId,
         data_folga: 'FOLGA_ACUMULADA',
-        equipe: militar.equipe,
+        equipe: prontidaoMilitar,
+        prontidao: prontidaoMilitar,
         ordem_no_momento: Number(militar.ordem_antiguidade),
         status: Config.CHOICE_STATUS.PENDENTE_VALIDACAO,
         justificativa_cancelamento: cleanJust,

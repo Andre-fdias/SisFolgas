@@ -15,7 +15,8 @@
       militares: [],
       militarFilter: 'TODAS',
       militarSearch: '',
-      selectedTeam: 'Equipe A',
+      selectedTeam: 'Verde',
+      selectedUnidade: 'TODAS',
       selectedDate: null,
       isSubmitting: false,
       myChoice: null
@@ -117,35 +118,51 @@
        CARREGAMENTO DE DADOS E RENDERIZAÇÃO
        ========================================================================== */
 
+    function updateUnidadeDropdowns(unidades) {
+      if (!unidades || !Array.isArray(unidades)) return;
+      const qSelect = document.getElementById('select-unidade-queue');
+      const mSelect = document.getElementById('select-unidade-militares');
+      const currentQ = qSelect ? qSelect.value : 'TODAS';
+      const currentM = mSelect ? mSelect.value : 'TODAS';
+
+      const optionsHtml = '<option value="TODAS">Todas as Unidades</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+
+      if (qSelect) {
+        qSelect.innerHTML = optionsHtml;
+        qSelect.value = (unidades.includes(currentQ) || currentQ === 'TODAS') ? currentQ : 'TODAS';
+      }
+      if (mSelect) {
+        mSelect.innerHTML = optionsHtml;
+        mSelect.value = (unidades.includes(currentM) || currentM === 'TODAS') ? currentM : 'TODAS';
+      }
+    }
+
     async function loadInitialState() {
       try {
-        const data = await callServer('apiGetInitialState', null, 'Autenticando sessão com o Google...');
+        const savedRe = localStorage.getItem('sisfolgas_session_re') || null;
+        const payload = {
+          sessionRe: savedRe,
+          unidadeFilter: state.selectedUnidade !== 'TODAS' ? state.selectedUnidade : null
+        };
+        const data = await callServer('apiGetInitialState', payload, 'Carregando dados do SisFolgas...');
         
         state.militares = data.militares || [];
         state.activePeriod = data.activePeriod;
         state.queues = data.queues || {};
         state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
 
-        const preCadCard = document.getElementById('pre-cadastro-card');
-        const preCadEmail = document.getElementById('pre-cadastro-email');
-
-        if (!data.authenticated || !data.user || !data.user.militar) {
-          if (preCadCard) {
-            preCadCard.style.display = 'block';
-            if (preCadEmail) {
-              preCadEmail.textContent = data.email || (data.user && data.user.email) || 'Conta Google Conectada';
-            }
-          }
-        } else {
-          if (preCadCard) {
-            preCadCard.style.display = 'none';
-          }
+        if (data.unidades && data.unidades.length > 0) {
+          updateUnidadeDropdowns(data.unidades);
         }
+
+        const preCadCard = document.getElementById('pre-cadastro-card');
+        if (preCadCard) preCadCard.style.display = 'none';
 
         if (!data.authenticated) {
           state.authenticated = false;
           state.user = {
-            email: data.email || 'Conta Google Não Vinculada',
+            email: 'Acesso por RE',
             perfil: 'VISITANTE',
             permissions: [],
             militar: null,
@@ -157,15 +174,21 @@
           renderTeamQueue();
           renderChoiceTab();
           renderMilitaresList();
-          showToast('Conectado ao Google. Informe seu RE e Nome no Pré-Cadastro para ativar seu acesso.', 'info');
           return;
         }
 
         state.authenticated = true;
         state.user = data.user;
 
-        if (state.user.militar && state.user.militar.equipe) {
-          state.selectedTeam = state.user.militar.equipe;
+        if (state.user.militar) {
+          const teamVal = state.user.militar.prontidao || state.user.militar.equipe;
+          if (teamVal) {
+            state.selectedTeam = teamVal;
+            document.querySelectorAll('#team-selector-buttons button').forEach(b => {
+              if (b.getAttribute('data-team') === teamVal) b.classList.add('active-team');
+              else b.classList.remove('active-team');
+            });
+          }
         }
 
         renderUserInfo();
@@ -190,20 +213,34 @@
 
     function renderUserInfo() {
       const user = state.user;
-      if (!user) return;
-
       const nameElem = document.getElementById('user-display-name');
       const badgeElem = document.getElementById('user-role-badge');
-      const emailElem = document.getElementById('user-google-email');
+      const btnLogout = document.getElementById('btn-header-logout');
+      const btnAltSenha = document.getElementById('btn-header-alterar-senha');
+      const btnLogin = document.getElementById('btn-header-login');
 
-      if (emailElem && user.email) {
-        emailElem.textContent = user.email;
+      if (!user || !state.authenticated) {
+        if (nameElem) nameElem.textContent = 'Não identificado (RE / Senha)';
+        if (badgeElem) {
+          badgeElem.textContent = 'VISITANTE';
+          badgeElem.className = 'user-role-tag role-visitante';
+        }
+        if (btnLogout) btnLogout.style.display = 'none';
+        if (btnAltSenha) btnAltSenha.style.display = 'none';
+        if (btnLogin) {
+          btnLogin.style.display = 'inline-flex';
+          btnLogin.textContent = '🔓 Entrar com RE';
+        }
+        return;
       }
 
       if (user.militar) {
-        nameElem.textContent = `${user.militar.graduacao} ${user.militar.nome_guerra} (RE: ${user.militar.re || user.militar.militar_id})`;
+        const m = user.militar;
+        const pTxt = m.prontidao || m.equipe || '';
+        const uTxt = m.unidade ? ` • ${m.unidade}` : '';
+        nameElem.textContent = `${m.graduacao} ${m.nome_guerra} (RE: ${m.re || m.militar_id})${uTxt} • Prontidão ${pTxt}`;
       } else {
-        nameElem.textContent = user.email || 'Usuário Google';
+        nameElem.textContent = user.email || 'Administrador';
       }
 
       if (user.isOwner) {
@@ -213,61 +250,105 @@
         badgeElem.textContent = user.perfil;
         badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
       }
+
+      if (btnLogout) btnLogout.style.display = 'inline-flex';
+      if (btnAltSenha) btnAltSenha.style.display = 'inline-flex';
+      if (btnLogin) {
+        btnLogin.style.display = 'inline-flex';
+        btnLogin.textContent = '🔄 Trocar RE';
+      }
     }
 
     function renderMilitaresList() {
       const tbody = document.getElementById('militares-table-body');
       if (!tbody) return;
 
-      const filterTeam = state.militarFilter || 'TODAS';
+      const filterProntidao = state.militarFilter || 'TODAS';
+      const filterUnidade = state.selectedUnidade || 'TODAS';
       const search = (state.militarSearch || '').toLowerCase().trim();
 
-      let list = state.militares || [];
-      if (filterTeam !== 'TODAS') {
-        list = list.filter(m => m.equipe === filterTeam);
+      // 1. Ordem oficial inicial: Lista de antiguidade geral do mais antigo até o mais novo (Coluna J)
+      let list = [...(state.militares || [])].sort((a, b) => {
+        const orderA = Number(a.ordem_antiguidade) || 999;
+        const orderB = Number(b.ordem_antiguidade) || 999;
+        return orderA - orderB;
+      });
+
+      // 2. Primeiro filtro: Coluna G (Unidade)
+      if (filterUnidade !== 'TODAS') {
+        list = list.filter(m => (m.unidade || '').toUpperCase() === filterUnidade.toUpperCase());
       }
 
+      // 3. Segundo filtro: Coluna I (Prontidão: Verde, Amarela, Azul)
+      if (filterProntidao !== 'TODAS') {
+        list = list.filter(m => {
+          const p = (m.prontidao || m.equipe || '').toLowerCase();
+          const target = filterProntidao.toLowerCase();
+          return p === target || p.includes(target);
+        });
+      }
+
+      // 4. Filtro textual por busca (RE, Nome de Guerra, Graduação, Nome Completo)
       if (search) {
         list = list.filter(m => {
           const re = String(m.re || '').toLowerCase();
           const nomeGuerra = (m.nome_guerra || '').toLowerCase();
           const grad = (m.graduacao || '').toLowerCase();
           const nomeCompleto = (m.nome_completo || '').toLowerCase();
-          return re.includes(search) || nomeGuerra.includes(search) || grad.includes(search) || nomeCompleto.includes(search);
+          const unidade = (m.unidade || '').toLowerCase();
+          return re.includes(search) || nomeGuerra.includes(search) || grad.includes(search) || nomeCompleto.includes(search) || unidade.includes(search);
         });
       }
 
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar encontrado para os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar encontrado para os filtros selecionados.</td></tr>`;
         return;
       }
 
-      const myEmail = (state.user && state.user.email) ? state.user.email.toLowerCase() : '';
-      const isAdmin = state.user && (state.user.perfil === 'ADMIN' || state.user.isOwner);
+      const currentLoggedRe = (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || '';
 
       tbody.innerHTML = list.map(m => {
         const displayRe = m.re || m.militar_id || '--';
         const displayDigito = m.digito_re ? '-' + m.digito_re : '';
-        const isLinkedToMe = m.email_vinculado && (m.email_vinculado.toLowerCase() === myEmail);
-        const hasEmail = Boolean(m.email_vinculado);
+        const isCurrentSession = (currentLoggedRe && String(currentLoggedRe) === String(displayRe));
+        const prontidaoNome = m.prontidao || m.equipe || 'Verde';
+        const situacaoNome = m.situacao || 'ATIVO';
+        const unidadeNome = m.unidade || '1º SGB';
+
+        let badgeProntClass = 'badge-prontidao-verde';
+        if (prontidaoNome.toLowerCase().includes('amarel')) badgeProntClass = 'badge-prontidao-amarela';
+        else if (prontidaoNome.toLowerCase().includes('azul')) badgeProntClass = 'badge-prontidao-azul';
+
+        let badgeSitClass = 'status-badge badge-escolhido';
+        if (situacaoNome !== 'ATIVO') badgeSitClass = 'status-badge badge-nao-faz-jus';
 
         let actionHtml = '';
-        if (isLinkedToMe) {
-          actionHtml = `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(16, 185, 129, 0.4);">✅ Seu Perfil</span>`;
-        } else if (isAdmin) {
-          actionHtml = `<button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.vincularMilitar('${displayRe}', '${m.nome_guerra}')">✏️ Vincular E-mail</button>`;
-        } else if (!hasEmail) {
-          actionHtml = `<button class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="App.preencherPreCadastro('${displayRe}', '${m.nome_guerra}')">⚡ Ativar Meu Acesso</button>`;
+        if (isCurrentSession) {
+          actionHtml = `
+            <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
+              <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(16, 185, 129, 0.4);">
+                ✅ Logado
+              </span>
+              <button class="btn btn-secondary" style="font-size: 0.74rem; padding: 3px 8px;" onclick="App.abrirModalAlterarSenha('${displayRe}')">
+                🔑 Senha
+              </button>
+            </div>
+          `;
         } else {
-          actionHtml = `<span style="color: var(--text-muted); font-size: 0.78rem;">Vinculado</span>`;
+          actionHtml = `
+            <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
+              <button class="btn btn-primary" style="font-size: 0.74rem; padding: 3px 8px; background: linear-gradient(135deg, #4f46e5, #6366f1);" onclick="App.entrarComMilitarRe('${displayRe}')" title="Acessar sessão como este militar">
+                🔓 Entrar
+              </button>
+              <button class="btn btn-secondary" style="font-size: 0.74rem; padding: 3px 8px;" onclick="App.abrirModalAlterarSenha('${displayRe}')" title="Alterar senha do militar">
+                🔑 Senha
+              </button>
+            </div>
+          `;
         }
 
-        const emailDisplay = m.email_vinculado 
-          ? `<span style="color: #60a5fa; font-size: 0.82rem;">${m.email_vinculado}</span>` 
-          : `<span style="color: var(--text-muted); font-size: 0.82rem; font-style: italic;">Pendente</span>`;
-
         return `
-          <tr>
+          <tr class="${isCurrentSession ? 'highlight-my-row' : ''}">
             <td>
               <span style="font-family: monospace; font-weight: 700; color: #fff; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-subtle);">
                 ${displayRe}${displayDigito}
@@ -278,13 +359,10 @@
               <span style="color: #fff; font-weight: 600;">${m.nome_guerra}</span>
               ${m.nome_completo ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${m.nome_completo}</div>` : ''}
             </td>
-            <td>
-              <span class="user-role-tag" style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-subtle); font-size: 0.75rem;">
-                ${m.equipe}
-              </span>
-            </td>
-            <td style="text-align: center; font-weight: 700; color: #f59e0b;">${m.ordem_antiguidade}º</td>
-            <td>${emailDisplay}</td>
+            <td><span style="color: var(--text-secondary); font-size: 0.85rem;">${unidadeNome}</span></td>
+            <td><span class="${badgeSitClass}" style="font-size: 0.75rem;">${situacaoNome}</span></td>
+            <td><span class="status-badge ${badgeProntClass}">${prontidaoNome}</span></td>
+            <td style="text-align: center; font-weight: 700; color: #f59e0b; font-size: 0.95rem;">${m.ordem_antiguidade}º</td>
             <td style="text-align: center;">${actionHtml}</td>
           </tr>
         `;
@@ -542,16 +620,24 @@
       if (!tbody) return;
 
       if (!queue || !queue.fila || queue.fila.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar cadastrado para a ${team}.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum militar cadastrado para a Prontidão ${team}.</td></tr>`;
         return;
       }
 
-      const myMilitarId = state.user && state.user.militar ? state.user.militar.militar_id : null;
+      const myMilitarId = state.user && state.user.militar ? (state.user.militar.re || state.user.militar.militar_id) : null;
 
       tbody.innerHTML = queue.fila.map(item => {
-        const isMe = (myMilitarId === item.militar_id);
+        const itemRe = item.re || item.militar_id || '--';
+        const isMe = (myMilitarId && String(myMilitarId) === String(itemRe));
         const rowClass = isMe ? 'highlight-my-row' : '';
+        const prontidaoNome = item.prontidao || item.equipe || team;
+        const unidadeNome = item.unidade || '1º SGB';
+        const antiguidadeGeral = item.ordem_antiguidade ? `${item.ordem_antiguidade}º` : '--';
         
+        let prontidaoBadgeClass = 'badge-prontidao-verde';
+        if (prontidaoNome.toLowerCase().includes('amarel')) prontidaoBadgeClass = 'badge-prontidao-amarela';
+        else if (prontidaoNome.toLowerCase().includes('azul')) prontidaoBadgeClass = 'badge-prontidao-azul';
+
         let badgeHtml = '';
         let dataDisplay = item.data_folga ? formatDate(item.data_folga) : '--';
 
@@ -576,9 +662,13 @@
 
         return `
           <tr class="${rowClass}">
-            <td style="font-weight: 700;">${item.posicao}º</td>
-            <td>${item.graduacao}</td>
-            <td><strong>${item.nome_guerra}</strong> ${isMe ? '<span style="color: var(--brand-red); font-size: 0.75rem;">(Você)</span>' : ''}</td>
+            <td style="font-weight: 700; text-align: center;">${item.posicao}º</td>
+            <td><span style="font-family: monospace; font-weight: 700; color: #fff; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-subtle);">${itemRe}</span></td>
+            <td><strong>${item.graduacao}</strong></td>
+            <td><strong style="color: #fff;">${item.nome_guerra}</strong> ${isMe ? '<span style="color: var(--brand-red); font-size: 0.75rem;">(Você)</span>' : ''}</td>
+            <td><span style="color: var(--text-secondary); font-size: 0.85rem;">${unidadeNome}</span></td>
+            <td><span class="status-badge ${prontidaoBadgeClass}">${prontidaoNome}</span></td>
+            <td style="text-align: center; font-weight: 700; color: #f59e0b; font-size: 0.95rem;">${antiguidadeGeral}</td>
             <td>${badgeHtml}</td>
             <td>${dataDisplay}</td>
           </tr>
@@ -591,7 +681,7 @@
       const idInput = document.getElementById('pass-turn-military-id');
       if (nameInput && idInput) {
         if (prox) {
-          nameInput.value = `${prox.graduacao} ${prox.nome_guerra} (${prox.posicao}º da ${team})`;
+          nameInput.value = `${prox.graduacao} ${prox.nome_guerra} (${prox.posicao}º da Prontidão ${team})`;
           idInput.value = prox.militar_id;
         } else {
           nameInput.value = 'Todos já escolheram';
@@ -824,6 +914,49 @@
       document.getElementById('btn-refresh-militares-list')?.addEventListener('click', async () => {
         await loadInitialState();
         showToast('Efetivo atualizado com sucesso!', 'info');
+      });
+
+      // Filtro de Unidade na Fila
+      document.getElementById('select-unidade-queue')?.addEventListener('change', (e) => {
+        state.selectedUnidade = e.target.value;
+        const mSelect = document.getElementById('select-unidade-militares');
+        if (mSelect) mSelect.value = state.selectedUnidade;
+        renderMilitaresList();
+        renderTeamQueue();
+      });
+
+      // Filtro de Unidade no Efetivo
+      document.getElementById('select-unidade-militares')?.addEventListener('change', (e) => {
+        state.selectedUnidade = e.target.value;
+        const qSelect = document.getElementById('select-unidade-queue');
+        if (qSelect) qSelect.value = state.selectedUnidade;
+        renderMilitaresList();
+        renderTeamQueue();
+      });
+
+      // Header: Entrar / Trocar RE
+      document.getElementById('btn-header-login')?.addEventListener('click', () => {
+        abrirModalLogin();
+      });
+
+      // Header: Alterar Senha
+      document.getElementById('btn-header-alterar-senha')?.addEventListener('click', () => {
+        abrirModalAlterarSenha();
+      });
+
+      // Header: Logout
+      document.getElementById('btn-header-logout')?.addEventListener('click', () => {
+        fazerLogout();
+      });
+
+      // Modal Login Fechar
+      document.getElementById('btn-modal-close-login')?.addEventListener('click', () => {
+        fecharModalLogin();
+      });
+
+      // Modal Alterar Senha Fechar
+      document.getElementById('btn-modal-close-alt-senha')?.addEventListener('click', () => {
+        fecharModalAlterarSenha();
       });
 
       // Botão Confirmar Escolha -> Abre Modal de Confirmação
@@ -1331,6 +1464,148 @@
       }
     }
 
+    /* ==========================================================================
+       AUTENTICAÇÃO POR RE / SENHA E CRUD DE ALTERAÇÃO DE SENHA
+       ========================================================================== */
+
+    function abrirModalLogin() {
+      const modal = document.getElementById('modal-login');
+      const reInput = document.getElementById('login-re');
+      const senhaInput = document.getElementById('login-senha');
+      const errElem = document.getElementById('login-error-msg');
+      if (errElem) errElem.style.display = 'none';
+      if (reInput) {
+        const currentRe = (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || localStorage.getItem('sisfolgas_session_re') || '';
+        reInput.value = currentRe;
+      }
+      if (senhaInput) senhaInput.value = '';
+      if (modal) modal.style.display = 'flex';
+      setTimeout(() => {
+        if (reInput && !reInput.value) reInput.focus();
+        else if (senhaInput) senhaInput.focus();
+      }, 100);
+    }
+
+    function fecharModalLogin() {
+      const modal = document.getElementById('modal-login');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function abrirModalAlterarSenha(targetRe) {
+      const modal = document.getElementById('modal-alterar-senha');
+      const reInput = document.getElementById('alt-senha-re');
+      const atualInput = document.getElementById('alt-senha-atual');
+      const novaInput = document.getElementById('alt-senha-nova');
+      const confInput = document.getElementById('alt-senha-confirma');
+      const errElem = document.getElementById('alt-senha-error-msg');
+      if (errElem) errElem.style.display = 'none';
+
+      const currentRe = targetRe || (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || localStorage.getItem('sisfolgas_session_re') || '';
+      if (reInput) reInput.value = currentRe;
+      if (atualInput) atualInput.value = '';
+      if (novaInput) novaInput.value = '';
+      if (confInput) confInput.value = '';
+
+      if (modal) modal.style.display = 'flex';
+      setTimeout(() => {
+        if (atualInput) atualInput.focus();
+      }, 100);
+    }
+
+    function fecharModalAlterarSenha() {
+      const modal = document.getElementById('modal-alterar-senha');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function fazerLogin(reParam, senhaParam) {
+      const re = (reParam || (document.getElementById('login-re') ? document.getElementById('login-re').value : '') || '').trim();
+      const senhaVal = senhaParam !== undefined ? senhaParam : (document.getElementById('login-senha') ? document.getElementById('login-senha').value : '');
+      const senha = (senhaVal || '').trim();
+      const errElem = document.getElementById('login-error-msg');
+
+      if (!re) {
+        if (errElem) {
+          errElem.textContent = 'Informe o seu número de RE.';
+          errElem.style.display = 'block';
+        }
+        return;
+      }
+
+      try {
+        showLoading('Validando credenciais...');
+        const res = await callServer('apiLogin', { re: re, senha: senha || re }, 'Autenticando...');
+        const resolvedRe = (res && res.militar && res.militar.re) ? res.militar.re : re;
+        localStorage.setItem('sisfolgas_session_re', resolvedRe);
+        fecharModalLogin();
+        showToast(`Bem-vindo, ${res && res.militar ? res.militar.nome_guerra : resolvedRe}!`, 'success');
+        await loadInitialState();
+      } catch (err) {
+        if (errElem) {
+          errElem.textContent = err.message || 'Falha ao autenticar com o RE fornecido.';
+          errElem.style.display = 'block';
+        }
+      }
+    }
+
+    async function alterarSenha() {
+      const re = (document.getElementById('alt-senha-re') ? document.getElementById('alt-senha-re').value : '').trim();
+      const senhaAtual = (document.getElementById('alt-senha-atual') ? document.getElementById('alt-senha-atual').value : '').trim();
+      const novaSenha = (document.getElementById('alt-senha-nova') ? document.getElementById('alt-senha-nova').value : '').trim();
+      const confirmaSenha = (document.getElementById('alt-senha-confirma') ? document.getElementById('alt-senha-confirma').value : '').trim();
+      const errElem = document.getElementById('alt-senha-error-msg');
+
+      if (!senhaAtual || !novaSenha || !confirmaSenha) {
+        if (errElem) {
+          errElem.textContent = 'Preencha todos os campos obrigatórios.';
+          errElem.style.display = 'block';
+        }
+        return;
+      }
+
+      if (novaSenha !== confirmaSenha) {
+        if (errElem) {
+          errElem.textContent = 'A nova senha e a confirmação estão diferentes.';
+          errElem.style.display = 'block';
+        }
+        return;
+      }
+
+      if (novaSenha.length < 3) {
+        if (errElem) {
+          errElem.textContent = 'A nova senha deve ter no mínimo 3 caracteres.';
+          errElem.style.display = 'block';
+        }
+        return;
+      }
+
+      try {
+        showLoading('Atualizando sua senha no sistema...');
+        await callServer('apiAlterarSenha', {
+          re: re,
+          senhaAtual: senhaAtual,
+          novaSenha: novaSenha,
+          confirmaSenha: confirmaSenha
+        }, 'Gravando senha...');
+        fecharModalAlterarSenha();
+        showToast('Senha alterada com sucesso! Guarde suas credenciais.', 'success');
+      } catch (err) {
+        if (errElem) {
+          errElem.textContent = err.message || 'Falha ao alterar senha.';
+          errElem.style.display = 'block';
+        }
+      }
+    }
+
+    function fazerLogout() {
+      localStorage.removeItem('sisfolgas_session_re');
+      showToast('Você saiu da sessão. Faça login com seu RE para acessar suas folgas.', 'info');
+      loadInitialState();
+    }
+
+    function entrarComMilitarRe(re) {
+      fazerLogin(re, re);
+    }
+
     return {
       init: init,
       approveAccumulate: approveAccumulate,
@@ -1340,7 +1615,15 @@
       vincularMeuGoogle: vincularMeuGoogle,
       vincularMilitar: vincularMilitar,
       submitPreCadastro: submitPreCadastro,
-      preencherPreCadastro: preencherPreCadastro
+      preencherPreCadastro: preencherPreCadastro,
+      abrirModalLogin: abrirModalLogin,
+      fecharModalLogin: fecharModalLogin,
+      abrirModalAlterarSenha: abrirModalAlterarSenha,
+      fecharModalAlterarSenha: fecharModalAlterarSenha,
+      fazerLogin: fazerLogin,
+      alterarSenha: alterarSenha,
+      fazerLogout: fazerLogout,
+      entrarComMilitarRe: entrarComMilitarRe
     };
   })();
 

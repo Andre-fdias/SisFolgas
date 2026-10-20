@@ -82,25 +82,25 @@ function createMockSpreadsheet() {
 
 test('1. Escala 24x48 e Elegibilidade de Datas', async (t) => {
   await t.test('Rotação cíclica correta das três equipes na escala 24x48', () => {
-    // Âncora: 2026-01-01 = Equipe A
-    assert.equal(ChoiceService.getTeamForDate('2026-01-01'), 'Equipe A');
-    assert.equal(ChoiceService.getTeamForDate('2026-01-02'), 'Equipe B');
-    assert.equal(ChoiceService.getTeamForDate('2026-01-03'), 'Equipe C');
-    assert.equal(ChoiceService.getTeamForDate('2026-01-04'), 'Equipe A');
-    assert.equal(ChoiceService.getTeamForDate('2026-01-05'), 'Equipe B');
+    // Âncora: 2026-01-01 = Verde
+    assert.equal(ChoiceService.getTeamForDate('2026-01-01'), 'Verde');
+    assert.equal(ChoiceService.getTeamForDate('2026-01-02'), 'Amarela');
+    assert.equal(ChoiceService.getTeamForDate('2026-01-03'), 'Azul');
+    assert.equal(ChoiceService.getTeamForDate('2026-01-04'), 'Verde');
+    assert.equal(ChoiceService.getTeamForDate('2026-01-05'), 'Amarela');
   });
 
   await t.test('getEligibleDatesForTeam retorna apenas dias de serviço da equipe no mês', () => {
-    const datesEquipeA = ChoiceService.getEligibleDatesForTeam('2026-11', 'Equipe A');
-    const datesEquipeB = ChoiceService.getEligibleDatesForTeam('2026-11', 'Equipe B');
+    const datesEquipeA = ChoiceService.getEligibleDatesForTeam('2026-11', 'Verde');
+    const datesEquipeB = ChoiceService.getEligibleDatesForTeam('2026-11', 'Amarela');
 
     assert.ok(datesEquipeA.length > 0);
     assert.ok(datesEquipeB.length > 0);
 
-    // Assegura que nenhuma data da Equipe A coincide com a Equipe B
+    // Assegura que nenhuma data da Prontidão Verde coincide com a Amarela
     datesEquipeA.forEach(dA => {
-      assert.equal(ChoiceService.getTeamForDate(dA), 'Equipe A');
-      assert.ok(!datesEquipeB.includes(dA), 'Data da Equipe A não pode pertencer à Equipe B');
+      assert.equal(ChoiceService.getTeamForDate(dA), 'Verde');
+      assert.ok(!datesEquipeB.includes(dA), 'Data da Prontidão Verde não pode pertencer à Amarela');
     });
   });
 });
@@ -266,13 +266,13 @@ test('3. Motor de Escolha, Ordem de Antiguidade e Concorrência Atômica', async
   });
 
   await t.test('Militar da vez tenta escolher data fora do plantão da sua equipe e é barrado', () => {
-    // Busca uma data que não é da Equipe A
-    const datasEquipeB = ChoiceService.getEligibleDatesForTeam('2026-11', 'Equipe B');
+    // Busca uma data que não é da Equipe A / Verde
+    const datasEquipeB = ChoiceService.getEligibleDatesForTeam('2026-11', 'Amarela');
     const dataErrada = datasEquipeB[0];
 
     assert.throws(
       () => ChoiceService.makeChoice(ctxM1, periodo.periodo_id, m1.militar_id, dataErrada, 'idemp-key-m1-fail-2'),
-      /não é dia de plantão da sua equipe/
+      /não é dia de plantão da sua/
     );
   });
 
@@ -300,7 +300,7 @@ test('3. Motor de Escolha, Ordem de Antiguidade e Concorrência Atômica', async
   await t.test('Militar 2 (agora é sua vez) tenta escolher a MESMA data já ocupada: bloqueado por exclusividade', () => {
     assert.throws(
       () => ChoiceService.makeChoice(ctxM2, periodo.periodo_id, m2.militar_id, data1, 'idemp-key-m2-dupdate-1'),
-      /já foi escolhida por outro militar da sua equipe/
+      /já foi escolhida por outro militar da sua/
     );
   });
 

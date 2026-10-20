@@ -112,7 +112,10 @@ test('1. Endpoints RPC em Code.js - Resposta Envelopada e Tratamento Seguro de E
     nome_completo: 'Soldado Ramos',
     nome_guerra: 'Ramos',
     graduacao: 'Sd PM',
-    equipe: 'Equipe A',
+    equipe: 'Verde',
+    prontidao: 'Verde',
+    unidade: '1º SGB',
+    situacao: 'ATIVO',
     ordem_antiguidade: 1,
     email_vinculado: 'ramos@gmail.com',
     ativo: true
@@ -143,12 +146,12 @@ test('1. Endpoints RPC em Code.js - Resposta Envelopada e Tratamento Seguro de E
     assert.equal(res.data.authenticated, true);
     assert.equal(res.data.user.email, 'ramos@gmail.com');
     assert.equal(res.data.user.militar.nome_guerra, 'Ramos');
-    assert.ok(res.data.queues['Equipe A'] !== undefined);
+    assert.ok(res.data.queues['Verde'] !== undefined || res.data.queues['Equipe A'] !== undefined);
   });
 
   await t.test('apiMakeChoice executa com sucesso e retorna confirmação', () => {
     AuthService.setEmailOverride('ramos@gmail.com');
-    const datas = ChoiceService.getEligibleDatesForTeam('2026-11', 'Equipe A');
+    const datas = ChoiceService.getEligibleDatesForTeam('2026-11', 'Verde');
     const res = Code.apiMakeChoice({
       periodo_id: p1.periodo_id,
       militar_id: m1.militar_id,

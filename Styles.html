@@ -768,6 +768,71 @@
     flex-wrap: wrap;
   }
 
+  /* Badges de Prontidão CBM */
+  .badge-prontidao-verde, .badge-verde {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  }
+  .badge-prontidao-amarela, .badge-amarela {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  }
+  .badge-prontidao-azul, .badge-azul {
+    background: rgba(59, 130, 246, 0.18) !important;
+    color: #60a5fa !important;
+    border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  }
+
+  /* Modal de Login e Alteração de Senha */
+  .auth-modal-card {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98));
+    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 440px;
+    padding: 2.2rem;
+    position: relative;
+    animation: zoomIn 0.25s ease;
+  }
+
+  @keyframes zoomIn {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .auth-header {
+    text-align: center;
+    margin-bottom: 1.75rem;
+  }
+
+  .auth-badge-icon {
+    font-size: 2.8rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+
+  .btn-header-action {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .btn-header-action:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
   /* Responsive Adjustments */
   @media (max-width: 768px) {
     .header-container { flex-direction: column; gap: 0.75rem; align-items: flex-start; }

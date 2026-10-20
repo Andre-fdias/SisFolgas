@@ -2,7 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Gerenciamento e Escolha de Folgas - CBM</title>
+  <!-- Favicon estilizado do Corpo de Bombeiros Militar (Escudo CBM + Chama Dourada + Cruz de Malta) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23ef4444'/%3E%3Cstop offset='100%25' stop-color='%23991b1b'/%3E%3C/linearGradient%3E%3Cfilter id='s' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeDropShadow dx='0' dy='2' stdDeviation='2' flood-color='%23000' flood-opacity='0.5'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M32 6 L52 16 L52 36 C52 48 32 58 32 58 C32 58 12 48 12 36 L12 16 Z' fill='url(%23g)' filter='url(%23s)' stroke='%23f59e0b' stroke-width='1.5'/%3E%3Cpath d='M32 18 C30 23 25 26 25 31 C25 36 28 39 32 43 C36 39 39 36 39 31 C39 26 34 23 32 18 Z' fill='%23fbbf24'/%3E%3Cpath d='M32 26 C31 29 28 31 28 34 C28 37 30 39 32 41 C34 39 36 37 36 34 C36 31 33 29 32 26 Z' fill='%23ffffff'/%3E%3Ccircle cx='32' cy='46' r='2' fill='%23fef08a'/%3E%3C/svg%3E">
   <?!= include('Styles'); ?>
 </head>
 <body>
@@ -23,6 +26,15 @@
           <span id="user-display-name">Carregando autenticação...</span>
           <span class="user-role-tag" id="user-role-badge">...</span>
         </div>
+        <button class="btn btn-secondary btn-header-action" id="btn-header-alterar-senha" title="Alterar minha senha de acesso" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+          🔑 Trocar Senha
+        </button>
+        <button class="btn btn-secondary btn-header-action" id="btn-header-login" title="Acessar com outro RE" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+          🔓 Entrar / Trocar RE
+        </button>
+        <button class="btn btn-secondary btn-header-action" id="btn-header-logout" title="Sair da sessão" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
+          🚪 Sair
+        </button>
       </div>
     </div>
   </header>
@@ -110,14 +122,10 @@
       <div class="kpi-card">
         <div class="kpi-label">Vagas na Minha Equipe</div>
         <div class="kpi-value" id="kpi-vagas-restantes">--</div>
-        <div class="kpi-subtext" id="kpi-proximo-vez">Próximo da vez: --</div>
-      </div>
-    </section>
-
-    <!-- Navigation Tabs -->
+        <div class="kpi-subtext" id="kpi-proximo-ve    <!-- Navigation Tabs -->
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="tab-escolha" id="btn-tab-escolha">Minha Escolha</button>
-      <button class="tab-btn" data-tab="tab-fila" id="btn-tab-fila">Fila das Equipes</button>
+      <button class="tab-btn" data-tab="tab-fila" id="btn-tab-fila">Fila das Prontidões</button>
       <button class="tab-btn" data-tab="tab-militares" id="btn-tab-militares">Efetivo de Militares</button>
       <button class="tab-btn" data-tab="tab-gestor" id="btn-tab-gestor" style="display: none;">
         Painel Operacional <span class="badge-counter" id="badge-pending-accumulate" style="display: none; background: #9333ea; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; margin-left: 6px; font-weight: 700;">0</span>
@@ -205,31 +213,44 @@
       </div>
     </section>
 
-    <!-- Tab 2: Fila das Equipes -->
+    <!-- Tab 2: Fila das Prontidões (Filtrada por Unidade e Prontidão com Antiguidade Geral) -->
     <section class="tab-pane" id="tab-fila">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
-        <div style="display: flex; gap: 0.5rem;" id="team-selector-buttons">
-          <button class="btn btn-secondary active-team" data-team="Equipe A" id="btn-team-a">Equipe A</button>
-          <button class="btn btn-secondary" data-team="Equipe B" id="btn-team-b">Equipe B</button>
-          <button class="btn btn-secondary" data-team="Equipe C" id="btn-team-c">Equipe C</button>
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;" id="team-selector-buttons">
+          <button class="btn btn-secondary active-team" data-team="Verde" id="btn-team-verde">🟢 Prontidão Verde</button>
+          <button class="btn btn-secondary" data-team="Amarela" id="btn-team-amarela">🟡 Prontidão Amarela</button>
+          <button class="btn btn-secondary" data-team="Azul" id="btn-team-azul">🔵 Prontidão Azul</button>
         </div>
-        <button class="btn btn-secondary" id="btn-refresh-queue">Atualizar Fila</button>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <label for="select-unidade-queue" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">Unidade (Col G):</label>
+            <select id="select-unidade-queue" class="form-select" style="min-width: 140px; padding: 0.4rem 0.65rem; font-size: 0.85rem;">
+              <option value="TODAS">Todas as Unidades</option>
+              <option value="1º SGB" selected>1º SGB</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" id="btn-refresh-queue">🔄 Atualizar Fila</button>
+        </div>
       </div>
 
       <div class="table-container">
         <table class="queue-table">
           <thead>
             <tr>
-              <th style="width: 80px;">Posição</th>
+              <th style="width: 80px; text-align: center;">Vez</th>
+              <th>RE (ID)</th>
               <th>Graduação</th>
               <th>Nome de Guerra</th>
+              <th>Unidade (Col G)</th>
+              <th>Prontidão (Col I)</th>
+              <th style="text-align: center;">Antiguidade Geral (Col J)</th>
               <th>Situação da Escolha</th>
               <th>Data Escolhida</th>
             </tr>
           </thead>
           <tbody id="queue-table-body">
             <tr>
-              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando lista da equipe...</td>
+              <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando fila da prontidão...</td>
             </tr>
           </tbody>
         </table>
@@ -245,19 +266,28 @@
               👥 Efetivo de Bombeiros Militares Cadastrados
             </h2>
             <p style="color: var(--text-secondary); font-size: 0.85rem;">
-              Dados integrados à planilha. O identificador oficial no sistema é sempre o <strong>RE (Coluna B da aba MILITARES)</strong>.
+              Mapeamento fiel à planilha: <strong>Unidade (Col G)</strong> • <strong>Situação (Col H)</strong> • <strong>Prontidão (Col I)</strong> • <strong>Antiguidade Geral (Col J)</strong>.
             </p>
           </div>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="militar-team-filter-buttons">
-            <button class="btn btn-secondary active-team" data-filter="TODAS" id="btn-militar-filter-all">Todas as Equipes</button>
-            <button class="btn btn-secondary" data-filter="Equipe A" id="btn-militar-filter-a">Equipe A</button>
-            <button class="btn btn-secondary" data-filter="Equipe B" id="btn-militar-filter-b">Equipe B</button>
-            <button class="btn btn-secondary" data-filter="Equipe C" id="btn-militar-filter-c">Equipe C</button>
+            <button class="btn btn-secondary active-team" data-filter="TODAS" id="btn-militar-filter-all">Todas as Prontidões</button>
+            <button class="btn btn-secondary" data-filter="Verde" id="btn-militar-filter-verde">🟢 Verde</button>
+            <button class="btn btn-secondary" data-filter="Amarela" id="btn-militar-filter-amarela">🟡 Amarela</button>
+            <button class="btn btn-secondary" data-filter="Azul" id="btn-militar-filter-azul">🔵 Azul</button>
           </div>
         </div>
 
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-          <input type="text" id="militar-search-input" placeholder="🔍 Buscar por RE, Nome de Guerra ou Graduação..." style="flex: 1; min-width: 260px; padding: 0.65rem 1rem; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: #fff; font-size: 0.88rem;">
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+          <input type="text" id="militar-search-input" placeholder="🔍 Buscar por RE, Nome de Guerra, Graduação..." style="flex: 1; min-width: 240px; padding: 0.65rem 1rem; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: #fff; font-size: 0.88rem;">
+          
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <label for="select-unidade-militares" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">Filtrar Unidade:</label>
+            <select id="select-unidade-militares" class="form-select" style="min-width: 140px; padding: 0.5rem 0.75rem; font-size: 0.85rem;">
+              <option value="TODAS">Todas as Unidades</option>
+              <option value="1º SGB" selected>1º SGB</option>
+            </select>
+          </div>
+
           <button class="btn btn-secondary" id="btn-refresh-militares-list">🔄 Atualizar Efetivo</button>
         </div>
 
@@ -265,18 +295,19 @@
           <table class="queue-table">
             <thead>
               <tr>
-                <th style="width: 120px;">RE (ID)</th>
-                <th>Graduação</th>
-                <th>Nome de Guerra</th>
-                <th>Prontidão</th>
-                <th style="width: 100px; text-align: center;">Antiguidade</th>
-                <th>Conta Google Vinculada</th>
-                <th style="text-align: center; width: 180px;">Ação de Login / Vínculo</th>
+                <th style="width: 110px;">RE (Col B)</th>
+                <th>Graduação (Col F)</th>
+                <th>Nome de Guerra (Col E)</th>
+                <th>Unidade (Col G)</th>
+                <th>Situação (Col H)</th>
+                <th>Prontidão (Col I)</th>
+                <th style="width: 120px; text-align: center;">Antiguidade (Col J)</th>
+                <th style="text-align: center; width: 220px;">Ações de Acesso / Senha</th>
               </tr>
             </thead>
             <tbody id="militares-table-body">
               <tr>
-                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando efetivo de militares...</td>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando efetivo de militares...</td>
               </tr>
             </tbody>
           </table>
@@ -368,11 +399,11 @@
 
           <form id="form-nao-faz-jus">
             <div class="form-group">
-              <label class="form-label">Equipe</label>
+              <label class="form-label">Prontidão</label>
               <select class="form-select" id="nao-faz-jus-team-select">
-                <option value="Equipe A">Equipe A</option>
-                <option value="Equipe B">Equipe B</option>
-                <option value="Equipe C">Equipe C</option>
+                <option value="Verde">🟢 Prontidão Verde</option>
+                <option value="Amarela">🟡 Prontidão Amarela</option>
+                <option value="Azul">🔵 Prontidão Azul</option>
               </select>
             </div>
             <div class="form-group">
@@ -703,6 +734,93 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-modal-close-recusar-permuta">Cancelar</button>
         <button class="btn btn-danger" id="btn-modal-confirm-recusar-permuta">Confirmar Recusa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Login com RE e Senha (Senha padrão = RE) -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <div class="auth-header">
+          <div class="auth-badge-icon">🚒</div>
+          <div>
+            <h3 style="color: #fff; margin: 0; font-size: 1.2rem;">Acesso ao SisFolgas - CBM</h3>
+            <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0.2rem 0 0 0;">Identifique-se com seu RE para acessar suas folgas</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+          <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.4;">
+            ℹ️ <strong>Senha Padrão Inicial:</strong> Seu próprio número de <strong>RE</strong>.<br>
+            Após o primeiro acesso, você poderá alterar sua senha a qualquer momento no botão <em>"Trocar Senha"</em> se desejar.
+          </div>
+        </div>
+
+        <form id="form-login-re" onsubmit="event.preventDefault(); App.fazerLogin();">
+          <div class="form-group">
+            <label class="form-label" for="login-re">Número do RE (Identificador do Militar):</label>
+            <input type="text" class="form-input" id="login-re" placeholder="Ex: 10101, 10202 ou admin" required autocomplete="username" style="font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-senha">Senha de Acesso:</label>
+            <input type="password" class="form-input" id="login-senha" placeholder="Padrão inicial = seu RE" required autocomplete="current-password" style="font-size: 1.05rem;">
+          </div>
+          <div id="login-error-msg" style="display: none; color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 600;"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-modal-close-login">Fechar</button>
+        <button type="button" class="btn btn-primary" id="btn-modal-confirm-login" onclick="App.fazerLogin();">
+          🔓 Entrar no Sistema
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Alteração de Senha (CRUD de Senha) -->
+  <div class="modal-overlay" id="modal-alterar-senha">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <div class="auth-header">
+          <div class="auth-badge-icon">🔑</div>
+          <div>
+            <h3 style="color: #fff; margin: 0; font-size: 1.2rem;">Alteração de Senha</h3>
+            <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0.2rem 0 0 0;">Defina uma nova senha pessoal para o seu RE</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.85rem;">
+          A alteração de senha é opcional. Se preferir não alterar, você pode continuar utilizando o seu RE como senha padrão.
+        </p>
+
+        <form id="form-alterar-senha" onsubmit="event.preventDefault(); App.alterarSenha();">
+          <div class="form-group">
+            <label class="form-label" for="alt-senha-re">RE do Militar:</label>
+            <input type="text" class="form-input" id="alt-senha-re" readonly style="background: rgba(15, 23, 42, 0.5); opacity: 0.85; font-weight: 600;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="alt-senha-atual">Senha Atual:</label>
+            <input type="password" class="form-input" id="alt-senha-atual" placeholder="Digite sua senha atual (ou seu RE)" required autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="alt-senha-nova">Nova Senha:</label>
+            <input type="password" class="form-input" id="alt-senha-nova" placeholder="Mínimo 3 caracteres" required minlength="3" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="alt-senha-confirma">Confirmar Nova Senha:</label>
+            <input type="password" class="form-input" id="alt-senha-confirma" placeholder="Repita a nova senha exatamente igual" required minlength="3" autocomplete="new-password">
+          </div>
+          <div id="alt-senha-error-msg" style="display: none; color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 600;"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-modal-close-alt-senha">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-modal-confirm-alt-senha" onclick="App.alterarSenha();">
+          💾 Salvar Nova Senha
+        </button>
       </div>
     </div>
   </div>

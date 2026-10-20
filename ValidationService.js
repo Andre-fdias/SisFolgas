@@ -181,10 +181,29 @@ const ValidationService = {
    * Assegura que um valor esteja dentro de um conjunto permitido (Enum)
    */
   assertIn: function(val, allowedValues, fieldName) {
+    if (fieldName === 'Equipe' || fieldName === 'Prontidão') {
+      const allowed = ['Verde', 'Amarela', 'Azul', 'Equipe A', 'Equipe B', 'Equipe C'];
+      if (!allowed.includes(val)) {
+        throw new Error(`Valor inválido para ${fieldName}: '${val}'. Permitidos: ${allowed.join(', ')}`);
+      }
+      return val;
+    }
     if (!allowedValues.includes(val)) {
       throw new Error(`Valor inválido para ${fieldName}: '${val}'. Permitidos: ${allowedValues.join(', ')}`);
     }
     return val;
+  },
+
+  /**
+   * Normaliza o nome da prontidão / equipe
+   */
+  normalizeProntidao: function(p) {
+    if (!p) return 'Verde';
+    const clean = String(p).trim();
+    if (clean.toLowerCase().includes('verde') || clean.toUpperCase() === 'EQUIPE A') return 'Verde';
+    if (clean.toLowerCase().includes('amarel') || clean.toUpperCase() === 'EQUIPE B') return 'Amarela';
+    if (clean.toLowerCase().includes('azul') || clean.toUpperCase() === 'EQUIPE C') return 'Azul';
+    return clean;
   },
 
   /**
@@ -208,20 +227,22 @@ const ValidationService = {
    */
   sanitizeMilitaryDto: function(militar, isCurrentUserOrAdmin) {
     if (!militar) return null;
+    const pront = militar.prontidao || militar.equipe || 'Verde';
     return {
       militar_id: militar.militar_id,
       nome_guerra: militar.nome_guerra,
       graduacao: militar.graduacao,
-      equipe: militar.equipe,
+      equipe: pront,
+      prontidao: pront,
+      situacao: militar.situacao || (militar.ativo ? 'ATIVO' : 'INATIVO'),
+      unidade: militar.unidade || '1º Pelotão Bombeiros',
       ordem_antiguidade: Number(militar.ordem_antiguidade),
       ativo: Boolean(militar.ativo),
       // Dados funcionais exibidos apenas para o próprio militar ou para a administração:
       nome_completo: isCurrentUserOrAdmin ? militar.nome_completo : undefined,
       re: isCurrentUserOrAdmin ? militar.re : undefined,
       digito_re: isCurrentUserOrAdmin ? militar.digito_re : undefined,
-      email_vinculado: isCurrentUserOrAdmin ? militar.email_vinculado : undefined,
-      unidade: militar.unidade,
-      prontidao: militar.prontidao
+      email_vinculado: isCurrentUserOrAdmin ? militar.email_vinculado : undefined
     };
   }
 };

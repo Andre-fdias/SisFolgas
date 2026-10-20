@@ -119,12 +119,14 @@ const AdminService = (function() {
       const militar = MilitaryService.getById(militarId);
       if (!militar) throw new Error('Militar não encontrado.');
 
+      const equipeMilitar = militar.prontidao || militar.equipe;
       const record = {
         escolha_id: ValidationService.generateUuid(),
         periodo_id: periodoId,
         militar_id: militarId,
         data_folga: 'NAO_FAZ_JUS',
-        equipe: militar.equipe,
+        equipe: equipeMilitar,
+        prontidao: equipeMilitar,
         ordem_no_momento: Number(militar.ordem_antiguidade),
         status: Config.CHOICE_STATUS.ATIVA,
         justificativa_cancelamento: `NÃO FAZ JUS [${motivoDescricao}]: ${cleanJustificativa}`,

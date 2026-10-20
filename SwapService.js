@@ -53,9 +53,14 @@ const SwapService = (function() {
         throw new Error('Inconsistência nos dados do militar de destino.');
       }
 
-      // Se ambos forem da mesma equipe, exige que todos os militares da equipe já tenham escolhido
-      if (escolhaOrigem.equipe === escolhaDestino.equipe) {
-        const queueStatus = ChoiceService.getTeamQueueStatus(escolhaOrigem.periodo_id, escolhaOrigem.equipe);
+      // Se ambos forem da mesma equipe/prontidão, exige que todos os militares da equipe já tenham escolhido
+      const eqOrigem = escolhaOrigem.prontidao || escolhaOrigem.equipe;
+      const eqDestino = escolhaDestino.prontidao || escolhaDestino.equipe;
+      const normEqOrigem = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(eqOrigem) : eqOrigem;
+      const normEqDestino = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(eqDestino) : eqDestino;
+
+      if (normEqOrigem === normEqDestino || eqOrigem === eqDestino) {
+        const queueStatus = ChoiceService.getTeamQueueStatus(escolhaOrigem.periodo_id, normEqOrigem);
         if (!queueStatus.fase_trocas_liberada) {
           throw new Error('A troca de folgas entre militares só é liberada após todos os integrantes da equipe concluírem suas escolhas iniciais.');
         }

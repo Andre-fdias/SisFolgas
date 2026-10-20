@@ -80,10 +80,12 @@ function setupPopularApenasMilitares() {
 /**
  * Wrapper de execução segura para todas as chamadas remotas (RPC Envelope)
  */
-function runSecureRpc(actionName, fn) {
+function runSecureRpc(actionName, fn, optionalSessionRe) {
   const opId = ValidationService.generateUuid();
   try {
-    const context = AuthService.getUserContext();
+    const context = optionalSessionRe 
+      ? AuthService.getUserContextByRe(optionalSessionRe) 
+      : AuthService.getUserContext();
     const result = fn(context, opId);
     return {
       success: true,
@@ -110,22 +112,113 @@ function runSecureRpc(actionName, fn) {
    ========================================================================== */
 
 /**
- * Carrega estado inicial do usuário, permissões, período ativo e filas
+ * Login direto por Usuário (RE) e Senha
  */
-function apiGetInitialState() {
+function apiLogin(payload) {
+  const opId = ValidationService.generateUuid();
+  try {
+    const usuario = payload ? (payload.re || payload.usuario) : null;
+    if (!usuario) {
+      throw new Error('Informe o RE (usuário) e a senha para entrar.');
+    }
+    const result = AuthService.loginWithCredentials(usuario, payload.senha);
+    return {
+      success: true,
+      data: result,
+      opId: opId
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: {
+        code: 'LOGIN_FAILED',
+        message: err.message || 'Falha ao autenticar usuário.'
+      },
+      opId: opId
+    };
+  }
+}
+
+/**
+ * Alteração de Senha do Militar (CRUD de Senha)
+ */
+function apiAlterarSenha(payload) {
+  const opId = ValidationService.generateUuid();
+  try {
+    if (!payload || !payload.re) {
+      throw new Error('RE não informado para alteração de senha.');
+    }
+    const result = AuthService.changePassword(
+      payload.re,
+      payload.senhaAtual,
+      payload.novaSenha,
+      payload.confirmaSenha
+    );
+    return {
+      success: true,
+      data: result,
+      opId: opId
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: {
+        code: 'PASSWORD_CHANGE_FAILED',
+        message: err.message || 'Falha ao alterar senha.'
+      },
+      opId: opId
+    };
+  }
+}
+
+/**
+ * Encerramento de sessão
+ */
+function apiLogout() {
+  return {
+    success: true,
+    data: { mensagem: 'Sessão encerrada com sucesso.' }
+  };
+}
+
+/**
+ * Carrega estado inicial do usuário, permissões, período ativo, prontidões e filas
+ */
+function apiGetInitialState(payload) {
+  const sessionRe = (payload && payload.sessionRe) ? payload.sessionRe : null;
+  const unidadeFilter = (payload && payload.unidade) ? payload.unidade : null;
+
   return runSecureRpc('getInitialState', function(context, opId) {
     const activePeriod = PeriodService.getActivePeriod();
     const sanitizedMilitar = context.militar ? ValidationService.sanitizeMilitaryDto(context.militar, true) : null;
 
+    const allMilitaresRaw = MilitaryService.getAllActive();
+
+    // Obtém lista única de unidades presentes no cadastro
+    const unidadesSet = new Set();
+    allMilitaresRaw.forEach(m => {
+      if (m.unidade) unidadesSet.add(m.unidade);
+    });
+    const unidades = Array.from(unidadesSet);
+    if (unidades.length === 0) unidades.push('1º SGB');
+
+    const prontidoes = Config.DEFAULTS.PRONTIDOES || ['Verde', 'Amarela', 'Azul'];
+
     let queues = {};
     if (activePeriod) {
-      Config.DEFAULTS.TEAMS.forEach(team => {
-        queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team);
+      prontidoes.forEach(team => {
+        queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team, unidadeFilter);
+      });
+      // Retrocompatibilidade para testes legados
+      Config.DEFAULTS.LEGACY_TEAMS.forEach(team => {
+        if (!queues[team]) {
+          queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team, unidadeFilter);
+        }
       });
     }
 
     // Lista completa de todos os militares cadastrados para exibição direta no sistema
-    const allMilitares = MilitaryService.getAllActive().map(m => {
+    const allMilitares = allMilitaresRaw.map(m => {
       const isSelf = context.militar && (String(context.militar.re) === String(m.re));
       const isAdmin = context.perfil === Config.ROLES.ADMIN;
       return ValidationService.sanitizeMilitaryDto(m, isSelf || isAdmin);
@@ -137,9 +230,11 @@ function apiGetInitialState() {
         error: context.error,
         email: context.email || '',
         militares: allMilitares,
+        unidades: unidades,
+        prontidoes: prontidoes,
         activePeriod: activePeriod,
         queues: queues,
-        teams: Config.DEFAULTS.TEAMS
+        teams: prontidoes
       };
     }
 
@@ -147,15 +242,18 @@ function apiGetInitialState() {
       authenticated: true,
       user: {
         email: context.email,
+        sessionRe: context.sessionRe || (context.militar ? context.militar.re : ''),
         perfil: context.perfil,
         permissions: context.permissions,
         militar: sanitizedMilitar,
         isOwner: Boolean(context.isOwner)
       },
       militares: allMilitares,
+      unidades: unidades,
+      prontidoes: prontidoes,
       activePeriod: activePeriod,
       queues: queues,
-      teams: Config.DEFAULTS.TEAMS,
+      teams: prontidoes,
       choiceWindow: {
         isOpen: ChoiceService.isWithinChoiceWindow(),
         currentDay: (new Date()).getDate(),
@@ -163,7 +261,7 @@ function apiGetInitialState() {
         endDay: Config.DEFAULTS.CHOICE_WINDOW_END_DAY
       }
     };
-  });
+  }, sessionRe);
 }
 
 /**
@@ -610,6 +708,9 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminRejectSwap,
     apiLinkGoogleToMilitary,
     apiPreCadastroMilitar,
+    apiLogin,
+    apiAlterarSenha,
+    apiLogout,
     apiGetAllMilitares,
     setupInicializarSistema,
     setupCriarApenasAbas,

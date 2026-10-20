@@ -6,26 +6,55 @@
 const MilitaryService = (function() {
   return {
     /**
-     * Retorna todos os militares ativos ordenados por equipe e antiguidade
+     * Retorna todos os militares ativos ordenados por antiguidade geral
+     * Permite filtro opcional por unidade e prontidão
      */
-    getAllActive: function() {
-      const militares = Repository.find(Config.SHEETS.MILITARES, function(m) {
+    getAllActive: function(unidadeFilter, prontidaoFilter) {
+      let militares = Repository.find(Config.SHEETS.MILITARES, function(m) {
         return m.ativo === true;
       });
 
+      if (unidadeFilter && unidadeFilter !== 'TODAS') {
+        militares = militares.filter(m => (m.unidade || '').toLowerCase() === unidadeFilter.toLowerCase());
+      }
+
+      if (prontidaoFilter && prontidaoFilter !== 'TODAS') {
+        const norm = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(prontidaoFilter) : prontidaoFilter;
+        militares = militares.filter(m => {
+          const p = m.prontidao || m.equipe;
+          return p === norm || p === prontidaoFilter;
+        });
+      }
+
+      // REGRA: Respeita a ordem geral de antiguidade do mais antigo ao mais novo
       return militares.sort(function(a, b) {
-        if (a.equipe !== b.equipe) return a.equipe.localeCompare(b.equipe);
         return Number(a.ordem_antiguidade) - Number(b.ordem_antiguidade);
       });
     },
 
     /**
-     * Retorna militares de uma equipe específica ordenados por antiguidade estrita
+     * Retorna militares de uma prontidão/equipe específica ordenados por antiguidade
      */
-    getByTeam: function(equipe) {
-      if (!equipe) throw new Error('Equipe não informada.');
-      const all = this.getAllActive();
-      return all.filter(m => m.equipe === equipe);
+    getByTeam: function(equipe, unidadeFilter) {
+      if (!equipe) throw new Error('Prontidão/Equipe não informada.');
+      const norm = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : equipe;
+      const all = Repository.find(Config.SHEETS.MILITARES, function(m) {
+        return m.ativo === true;
+      });
+
+      const filtered = all.filter(m => {
+        const p = m.prontidao || m.equipe;
+        const matchesTeam = (p === norm || p === equipe);
+        if (!matchesTeam) return false;
+        if (unidadeFilter && unidadeFilter !== 'TODAS') {
+          return (m.unidade || '').toLowerCase() === unidadeFilter.toLowerCase();
+        }
+        return true;
+      });
+
+      return filtered.sort(function(a, b) {
+        return Number(a.ordem_antiguidade) - Number(b.ordem_antiguidade);
+      });
     },
 
     /**
@@ -59,7 +88,8 @@ const MilitaryService = (function() {
       const nomeCompleto = ValidationService.sanitizeString(data.nome_completo);
       const nomeGuerra = ValidationService.sanitizeString(data.nome_guerra);
       const graduacao = ValidationService.sanitizeString(data.graduacao);
-      const equipe = ValidationService.assertIn(data.equipe, Config.DEFAULTS.TEAMS, 'Equipe');
+      const rawProntidao = data.prontidao || data.equipe || 'Verde';
+      const prontidao = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(rawProntidao) : rawProntidao;
       const antiguidade = parseInt(data.ordem_antiguidade, 10);
       const emailVinculado = data.email_vinculado ? ValidationService.normalizeEmail(data.email_vinculado) : '';
 
@@ -96,9 +126,10 @@ const MilitaryService = (function() {
           nome_completo: nomeCompleto,
           nome_guerra: nomeGuerra,
           graduacao: graduacao,
-          unidade: ValidationService.sanitizeString(data.unidade || previous.unidade || '1º Pelotão'),
-          prontidao: ValidationService.sanitizeString(data.prontidao || previous.prontidao || 'Ativa'),
-          equipe: equipe,
+          unidade: ValidationService.sanitizeString(data.unidade || previous.unidade || '1º SGB'),
+          situacao: ValidationService.sanitizeString(data.situacao || previous.situacao || 'ATIVO'),
+          prontidao: prontidao,
+          equipe: prontidao,
           ordem_antiguidade: antiguidade,
           email_vinculado: emailVinculado,
           ativo: data.ativo !== undefined ? Boolean(data.ativo) : previous.ativo,
@@ -127,9 +158,10 @@ const MilitaryService = (function() {
           nome_completo: nomeCompleto,
           nome_guerra: nomeGuerra,
           graduacao: graduacao,
-          unidade: ValidationService.sanitizeString(data.unidade || '1º Pelotão'),
-          prontidao: ValidationService.sanitizeString(data.prontidao || 'Ativa'),
-          equipe: equipe,
+          unidade: ValidationService.sanitizeString(data.unidade || '1º SGB'),
+          situacao: ValidationService.sanitizeString(data.situacao || 'ATIVO'),
+          prontidao: prontidao,
+          equipe: prontidao,
           ordem_antiguidade: antiguidade,
           email_vinculado: emailVinculado,
           ativo: true,
