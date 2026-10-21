@@ -64,6 +64,15 @@
       }, 4500);
     }
 
+    function showGlobalErrorBanner(msg) {
+      const banner = document.getElementById('global-error-banner');
+      const textElem = document.getElementById('global-error-banner-text');
+      if (banner && textElem) {
+        textElem.textContent = msg;
+        banner.style.display = 'flex';
+      }
+    }
+
     function generateUuid() {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = (Math.random() * 16) | 0;
@@ -139,18 +148,26 @@
     }
 
     async function loadInitialState() {
+      let data = null;
       try {
         const savedRe = localStorage.getItem('sisfolgas_session_re') || null;
         const payload = {
           sessionRe: savedRe,
+          unidade: state.selectedUnidade !== 'TODAS' ? state.selectedUnidade : null,
           unidadeFilter: state.selectedUnidade !== 'TODAS' ? state.selectedUnidade : null
         };
-        const data = await callServer('apiGetInitialState', payload, 'Carregando dados do SisFolgas...');
-        
+        data = await callServer('apiGetInitialState', payload, 'Carregando dados do SisFolgas...');
+      } catch (err) {
+        console.error('Erro ao comunicar com o servidor SisFolgas:', err);
+        const errMsg = err && err.message ? err.message : 'Falha ao conectar com o banco de dados da Planilha.';
+        showGlobalErrorBanner(errMsg);
+      }
+
+      if (data) {
         state.militares = data.militares || [];
-        state.activePeriod = data.activePeriod;
+        state.activePeriod = data.activePeriod || null;
         state.queues = data.queues || {};
-        state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: 1 };
+        state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: (new Date()).getDate() };
 
         if (data.unidades && data.unidades.length > 0) {
           updateUnidadeDropdowns(data.unidades);
@@ -168,47 +185,36 @@
             militar: null,
             isOwner: false
           };
-          renderUserInfo();
-          renderWindowBanner();
-          renderKpis();
-          renderTeamQueue();
-          renderChoiceTab();
-          renderMilitaresList();
-          return;
-        }
+        } else {
+          state.authenticated = true;
+          state.user = data.user;
 
-        state.authenticated = true;
-        state.user = data.user;
-
-        if (state.user.militar) {
-          const teamVal = state.user.militar.prontidao || state.user.militar.equipe;
-          if (teamVal) {
-            state.selectedTeam = teamVal;
-            document.querySelectorAll('#team-selector-buttons button').forEach(b => {
-              if (b.getAttribute('data-team') === teamVal) b.classList.add('active-team');
-              else b.classList.remove('active-team');
-            });
+          if (state.user && state.user.militar) {
+            const teamVal = state.user.militar.prontidao || state.user.militar.equipe;
+            if (teamVal) {
+              state.selectedTeam = teamVal;
+              document.querySelectorAll('#team-selector-buttons button').forEach(b => {
+                if (b.getAttribute('data-team') === teamVal) b.classList.add('active-team');
+                else b.classList.remove('active-team');
+              });
+            }
           }
         }
+      }
 
-        renderUserInfo();
-        renderWindowBanner();
-        renderKpis();
-        renderRolePermissions();
-        renderTeamQueue();
-        renderChoiceTab();
-        renderMilitaresList();
+      // Renderizações isoladas de alta resiliência (nenhuma falha impede as outras de rodarem)
+      try { renderUserInfo(); } catch (e) { console.error('Erro em renderUserInfo:', e); }
+      try { renderWindowBanner(); } catch (e) { console.error('Erro em renderWindowBanner:', e); }
+      try { renderKpis(); } catch (e) { console.error('Erro em renderKpis:', e); }
+      try { renderRolePermissions(); } catch (e) { console.error('Erro em renderRolePermissions:', e); }
+      try { renderTeamQueue(); } catch (e) { console.error('Erro em renderTeamQueue:', e); }
+      try { renderChoiceTab(); } catch (e) { console.error('Erro em renderChoiceTab:', e); }
+      try { renderMilitaresList(); } catch (e) { console.error('Erro em renderMilitaresList:', e); }
 
-        // Se perfil administrativo, carrega solicitações de acúmulo e permutas
-        if (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR') {
-          loadPendingAccumulateRequests();
-          loadPendingSwaps();
-          populateNaoFazJusMilitaries();
-        }
-
-      } catch (err) {
-        console.error('Erro ao inicializar estado:', err);
-        renderUserInfo();
+      if (state.user && (state.user.perfil === 'ADMIN' || state.user.perfil === 'GESTOR')) {
+        try { loadPendingAccumulateRequests(); } catch (e) {}
+        try { loadPendingSwaps(); } catch (e) {}
+        try { populateNaoFazJusMilitaries(); } catch (e) {}
       }
     }
 
@@ -418,79 +424,114 @@
     function renderKpis() {
       const p = state.activePeriod;
       const m = state.user ? state.user.militar : null;
-      const myTeam = m ? m.equipe : state.selectedTeam;
-      const queue = state.queues[myTeam];
+      const myTeam = m ? (m.prontidao || m.equipe) : state.selectedTeam;
+      const queue = state.queues[myTeam] || state.queues[state.selectedTeam];
 
       // KPI Competência
-      document.getElementById('kpi-competencia').textContent = p ? formatCompetencia(p.competencia) : 'Nenhum';
-      document.getElementById('kpi-periodo-status').textContent = p ? `Período ${p.status}` : 'Sem período aberto';
+      const compElem = document.getElementById('kpi-competencia');
+      const perStatusElem = document.getElementById('kpi-periodo-status');
+      if (compElem) compElem.textContent = p ? formatCompetencia(p.competencia) : 'Nenhum';
+      if (perStatusElem) perStatusElem.textContent = p ? `Período ${p.status}` : 'Sem período aberto';
 
       // KPI Minha Equipe
-      document.getElementById('kpi-equipe').textContent = myTeam || '--';
-      document.getElementById('kpi-antiguidade').textContent = m ? `Antiguidade Oficial: ${m.ordem_antiguidade}º` : 'Perfil Administrativo';
+      const teamElem = document.getElementById('kpi-equipe');
+      const antigElem = document.getElementById('kpi-antiguidade');
+      if (teamElem) teamElem.textContent = myTeam || '--';
+      if (antigElem) antigElem.textContent = m ? `Antiguidade Oficial: ${m.ordem_antiguidade}º` : 'Perfil Administrativo';
 
       // KPI Minha Situação
-      const myRow = (queue && m) ? queue.fila.find(f => f.militar_id === m.militar_id) : null;
+      const myRow = (queue && m && queue.fila) ? queue.fila.find(f => String(f.militar_id) === String(m.militar_id || m.re) || String(f.re) === String(m.re)) : null;
       const statusElem = document.getElementById('kpi-status-escolha');
       const dataFolgaElem = document.getElementById('kpi-data-folga');
 
       if (myRow) {
         if (myRow.status_fila === 'ESCOLHIDO') {
-          statusElem.textContent = 'FOLGA CONFIRMADA';
-          statusElem.style.color = 'var(--status-success)';
-          dataFolgaElem.textContent = `Plantão: ${formatDate(myRow.data_folga)}`;
+          if (statusElem) { statusElem.textContent = 'FOLGA CONFIRMADA'; statusElem.style.color = 'var(--status-success)'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = `Plantão: ${formatDate(myRow.data_folga)}`;
           state.myChoice = myRow;
         } else if (myRow.status_fila === 'SUA_VEZ') {
-          statusElem.textContent = 'É A SUA VEZ!';
-          statusElem.style.color = 'var(--brand-red)';
-          dataFolgaElem.textContent = 'Selecione uma data disponível';
+          if (statusElem) { statusElem.textContent = 'É A SUA VEZ!'; statusElem.style.color = 'var(--brand-red)'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = 'Selecione uma data disponível';
           state.myChoice = null;
         } else if (myRow.status_fila === 'PASSOU') {
-          statusElem.textContent = 'VEZ PASSADA';
-          statusElem.style.color = 'var(--status-warning)';
-          dataFolgaElem.textContent = 'Prazo expirado ou justificado';
+          if (statusElem) { statusElem.textContent = 'VEZ PASSADA'; statusElem.style.color = 'var(--status-warning)'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = 'Prazo expirado ou justificado';
         } else if (myRow.status_fila === 'NAO_FAZ_JUS') {
-          statusElem.textContent = 'NÃO FAZ JUS';
-          statusElem.style.color = 'var(--brand-amber)';
-          dataFolgaElem.textContent = myRow.motivo_nao_faz_jus || 'Afastamento regulamentar';
+          if (statusElem) { statusElem.textContent = 'NÃO FAZ JUS'; statusElem.style.color = 'var(--brand-amber)'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = myRow.motivo_nao_faz_jus || 'Afastamento regulamentar';
         } else if (myRow.status_fila === 'ACUMULADO') {
-          statusElem.textContent = 'FOLGA ACUMULADA';
-          statusElem.style.color = '#c084fc';
-          dataFolgaElem.textContent = 'Convertida em +1 crédito futuro';
+          if (statusElem) { statusElem.textContent = 'FOLGA ACUMULADA'; statusElem.style.color = '#c084fc'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = 'Convertida em +1 crédito futuro';
         } else if (myRow.status_fila === 'PENDENTE_VALIDACAO') {
-          statusElem.textContent = 'ACÚMULO PENDENTE';
-          statusElem.style.color = '#c084fc';
-          dataFolgaElem.textContent = 'Aguardando validação do Administrador';
+          if (statusElem) { statusElem.textContent = 'ACÚMULO PENDENTE'; statusElem.style.color = '#c084fc'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = 'Aguardando validação do Administrador';
         } else {
-          statusElem.textContent = 'AGUARDANDO VEZ';
-          statusElem.style.color = 'var(--text-secondary)';
-          dataFolgaElem.textContent = 'Aguarde os militares mais antigos';
+          if (statusElem) { statusElem.textContent = 'AGUARDANDO VEZ'; statusElem.style.color = 'var(--text-secondary)'; }
+          if (dataFolgaElem) dataFolgaElem.textContent = 'Aguarde os militares mais antigos';
         }
       } else {
-        statusElem.textContent = '--';
-        dataFolgaElem.textContent = 'Sem vínculo funcional';
+        if (statusElem) { statusElem.textContent = p ? 'AGUARDANDO VEZ' : 'SEM PERÍODO'; statusElem.style.color = 'var(--text-secondary)'; }
+        if (dataFolgaElem) dataFolgaElem.textContent = p ? 'Aguarde sua posição na escala' : 'Aguardando abertura de competência';
       }
 
       // KPI Vagas Restantes
-      if (queue) {
-        document.getElementById('kpi-vagas-restantes').textContent = `${queue.vagas_restantes} vagas`;
-        document.getElementById('kpi-proximo-vez').textContent = queue.proximo_da_vez 
-          ? `Vez de: ${queue.proximo_da_vez.graduacao} ${queue.proximo_da_vez.nome_guerra}` 
-          : 'Todos da equipe já escolheram';
+      const vagasElem = document.getElementById('kpi-vagas-restantes');
+      const proxElem = document.getElementById('kpi-proximo-vez');
+      if (vagasElem) {
+        vagasElem.textContent = queue ? `${queue.vagas_restantes} vagas` : (p ? '0 vagas' : 'Período Fechado');
+      }
+      if (proxElem) {
+        if (queue && queue.proximo_da_vez) {
+          proxElem.textContent = `Vez de: ${queue.proximo_da_vez.graduacao} ${queue.proximo_da_vez.nome_guerra}`;
+        } else if (queue && queue.vagas_restantes === 0) {
+          proxElem.textContent = 'Todas as escolhas concluídas';
+        } else {
+          proxElem.textContent = p ? 'Fila em processamento' : 'Aguardando abertura';
+        }
       }
     }
 
     function renderChoiceTab() {
+      const banner = document.getElementById('choice-banner');
+      const bannerTitle = document.getElementById('choice-banner-title');
+      const bannerDesc = document.getElementById('choice-banner-desc');
+      const btnConfirmar = document.getElementById('btn-confirmar-escolha');
+      const btnAcumulo = document.getElementById('btn-solicitar-acumulo');
+      const confirmedBox = document.getElementById('confirmed-choice-box');
+      const datesContainer = document.getElementById('eligible-dates-container');
+
       const m = state.user ? state.user.militar : null;
       if (!m) {
-        document.getElementById('choice-banner-title').textContent = 'Perfil de Acesso Administrativo';
-        document.getElementById('choice-banner-desc').textContent = 'Use as abas Painel Operacional ou Administração para gerenciar as equipes.';
-        document.getElementById('btn-confirmar-escolha').style.display = 'none';
-        document.getElementById('btn-solicitar-acumulo').style.display = 'none';
+        if (bannerTitle) bannerTitle.textContent = 'Perfil de Acesso Administrativo';
+        if (bannerDesc) bannerDesc.textContent = 'Use as abas Painel Operacional ou Administração para gerenciar as equipes.';
+        if (btnConfirmar) btnConfirmar.style.display = 'none';
+        if (btnAcumulo) btnAcumulo.style.display = 'none';
         return;
       }
 
-      const queue = state.queues[m.equipe];
+      // Se não houver período aberto no momento:
+      if (!state.activePeriod) {
+        if (banner) {
+          banner.style.display = 'flex';
+          banner.className = 'turn-banner waiting';
+        }
+        if (confirmedBox) confirmedBox.style.display = 'none';
+        if (bannerTitle) bannerTitle.innerHTML = '📅 Nenhum Período de Escolha Aberto no Momento';
+        if (bannerDesc) bannerDesc.textContent = 'Aguarde a administração abrir a competência (ex: NOV26) na aba Administração para liberar a escolha de folgas.';
+        if (btnConfirmar) {
+          btnConfirmar.style.display = 'inline-flex';
+          btnConfirmar.disabled = true;
+          btnConfirmar.textContent = 'Escolha Bloqueada (Sem Período)';
+        }
+        if (btnAcumulo) btnAcumulo.style.display = 'none';
+        if (datesContainer) {
+          datesContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2.5rem; color: var(--text-muted); font-size: 0.95rem;">Os dias de plantão 24x48 da sua prontidão estarão disponíveis para marcação assim que a competência for aberta pelo Administrador.</div>';
+        }
+        return;
+      }
+
+      const myTeam = m.prontidao || m.equipe || state.selectedTeam;
+      const queue = state.queues[myTeam] || state.queues[m.equipe] || state.queues[m.prontidao];
       if (!queue) return;
 
       const myRow = queue.fila.find(f => f.militar_id === m.militar_id);

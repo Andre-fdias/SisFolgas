@@ -133,8 +133,13 @@ const ChoiceService = (function() {
 
       escolhas.forEach(function(e) {
         escolhasPorMilitar[e.militar_id] = e;
-        if (e.status === Config.CHOICE_STATUS.ATIVA && e.data_folga && e.data_folga.startsWith(periodo.competencia)) {
-          datasOcupadas[e.data_folga] = e;
+        const dStr = String(e.data_folga || '');
+        const compIso = (typeof ValidationService !== 'undefined' && ValidationService.validateCompetencia)
+          ? ValidationService.validateCompetencia(periodo.competencia)
+          : periodo.competencia;
+        const matchesComp = dStr.startsWith(compIso) || dStr.startsWith(periodo.competencia);
+        if (e.status === Config.CHOICE_STATUS.ATIVA && dStr && matchesComp) {
+          datasOcupadas[dStr] = e;
         }
       });
 
@@ -222,6 +227,51 @@ const ChoiceService = (function() {
     },
 
     /**
+     * Retorna estrutura de fila segura para período fechado ou inexistente
+     */
+    getEmptyQueueFallback: function(equipe, unidadeFilter) {
+      const normEquipe = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : (equipe || 'Verde');
+      let militares = [];
+      try {
+        militares = MilitaryService.getByTeam(normEquipe, unidadeFilter);
+      } catch (e) {
+        militares = [];
+      }
+
+      const queue = militares.map((m, idx) => ({
+        posicao: idx + 1,
+        militar_id: m.militar_id || m.re,
+        re: m.re,
+        nome_guerra: m.nome_guerra,
+        graduacao: m.graduacao,
+        unidade: m.unidade,
+        prontidao: normEquipe,
+        ordem_antiguidade: m.ordem_antiguidade,
+        status_fila: 'AGUARDANDO',
+        data_folga: null,
+        tipo_conclusao: null,
+        escolha_id: null,
+        justificativa: ''
+      }));
+
+      return {
+        periodo_id: null,
+        competencia: '--',
+        equipe: normEquipe,
+        total_militares: militares.length,
+        total_resolvidos: 0,
+        todas_escolhas_concluidas: false,
+        fase_trocas_liberada: false,
+        janela_edicao_aberta: false,
+        vagas_restantes: 0,
+        datas_disponiveis: [],
+        datas_ocupadas: [],
+        proximo_da_vez: queue.length > 0 ? queue[0] : null,
+        fila: queue
+      };
+    },
+
+    /**
      * Realiza a confirmação de escolha de folga pelo militar
      */
     makeChoice: function(context, periodoId, militarId, dataFolga, idempotencyKey, opId) {
@@ -261,7 +311,11 @@ const ChoiceService = (function() {
           throw new Error('Militar inativo ou não encontrado.');
         }
 
-        if (!dataFolga.startsWith(periodo.competencia)) {
+        const compIso = (typeof ValidationService !== 'undefined' && ValidationService.validateCompetencia)
+          ? ValidationService.validateCompetencia(periodo.competencia)
+          : periodo.competencia;
+
+        if (!dataFolga.startsWith(compIso) && !dataFolga.startsWith(periodo.competencia)) {
           throw new Error(`A data ${dataFolga} não pertence à competência ${periodo.competencia}.`);
         }
         const prontidaoMilitar = militar.prontidao || militar.equipe;

@@ -35,9 +35,34 @@ const PeriodService = (function() {
      */
     getActivePeriod: function() {
       const openPeriods = Repository.find(Config.SHEETS.PERIODOS, function(p) {
-        return p.status === Config.PERIOD_STATUS.ABERTO;
+        const s = String(p.status || '').trim().toUpperCase();
+        return s === Config.PERIOD_STATUS.ABERTO;
       });
-      return openPeriods.length > 0 ? openPeriods[0] : null;
+      if (openPeriods.length > 0) return openPeriods[0];
+
+      // Auto-inicialização resiliente: se a aba PERIODOS estiver vazia, cria e abre competência padrão
+      try {
+        const all = Repository.getAll(Config.SHEETS.PERIODOS);
+        if (all.length === 0) {
+          const autoPeriod = {
+            periodo_id: ValidationService.generateUuid(),
+            competencia: 'NOV26',
+            data_abertura: '2026-11-01',
+            data_encerramento: '2026-11-30',
+            status: Config.PERIOD_STATUS.ABERTO,
+            regras_json: JSON.stringify({}),
+            criado_por: 'SISTEMA_AUTO_INIT',
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.PERIODOS, autoPeriod);
+          return autoPeriod;
+        }
+      } catch (e) {
+        // Fallback silencioso
+      }
+
+      return null;
     },
 
     /**

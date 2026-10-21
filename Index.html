@@ -42,6 +42,18 @@
   <!-- Main Container -->
   <main class="main-wrapper">
 
+    <!-- Banner de Erro Global de Conexão com o Banco -->
+    <div id="global-error-banner" style="display: none; margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(153, 27, 27, 0.45), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(239, 68, 68, 0.6); border-radius: var(--radius-lg); padding: 1rem 1.5rem; align-items: center; justify-content: space-between; gap: 1rem; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);">
+      <div style="display: flex; align-items: center; gap: 0.85rem;">
+        <span style="font-size: 1.8rem;">⚠️</span>
+        <div>
+          <strong style="color: #f87171; font-size: 1rem; font-family: var(--font-heading);">Aviso de Comunicação do Sistema:</strong>
+          <div id="global-error-banner-text" style="color: #fca5a5; font-size: 0.88rem; margin-top: 0.2rem;">Carregando estado do banco de dados...</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="App.init()" style="font-size: 0.8rem; padding: 0.35rem 0.85rem; border-color: rgba(239, 68, 68, 0.5);">🔄 Tentar Novamente</button>
+    </div>
+
     <!-- Banner da Janela Oficial de Escolha e Bloqueio -->
     <div id="window-status-banner" class="window-banner window-open">
       <div class="window-banner-icon" id="window-banner-icon">📅</div>

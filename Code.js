@@ -226,17 +226,33 @@ function apiGetInitialState(payload) {
     const prontidoes = Config.DEFAULTS.PRONTIDOES || ['Verde', 'Amarela', 'Azul'];
 
     let queues = {};
-    if (activePeriod) {
-      prontidoes.forEach(team => {
-        queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team, unidadeFilter);
-      });
-      // Retrocompatibilidade para testes legados
-      Config.DEFAULTS.LEGACY_TEAMS.forEach(team => {
-        if (!queues[team]) {
+    prontidoes.forEach(team => {
+      if (activePeriod) {
+        try {
           queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team, unidadeFilter);
+        } catch (e) {
+          console.error(`Erro ao obter status da fila para prontidão ${team}:`, e);
+          queues[team] = ChoiceService.getEmptyQueueFallback(team, unidadeFilter);
         }
-      });
-    }
+      } else {
+        queues[team] = ChoiceService.getEmptyQueueFallback(team, unidadeFilter);
+      }
+    });
+
+    // Retrocompatibilidade para testes legados
+    Config.DEFAULTS.LEGACY_TEAMS.forEach(team => {
+      if (!queues[team]) {
+        if (activePeriod) {
+          try {
+            queues[team] = ChoiceService.getTeamQueueStatus(activePeriod.periodo_id, team, unidadeFilter);
+          } catch (e) {
+            queues[team] = ChoiceService.getEmptyQueueFallback(team, unidadeFilter);
+          }
+        } else {
+          queues[team] = ChoiceService.getEmptyQueueFallback(team, unidadeFilter);
+        }
+      }
+    });
 
     // Lista completa de todos os militares cadastrados para exibição direta no sistema
     const allMilitares = allMilitaresRaw.map(m => {

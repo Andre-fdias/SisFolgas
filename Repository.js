@@ -25,6 +25,30 @@ const Repository = (function() {
     throw new Error('Planilha Google de banco de dados não configurada ou inacessível.');
   }
 
+  /**
+   * Normaliza nomes de colunas da planilha (remove acentos, espaços e padroniza aliases)
+   */
+  function normalizeHeaderName(h) {
+    if (!h) return '';
+    const s = String(h).trim();
+    const noAccents = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const clean = noAccents.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    
+    if (clean === 're' || clean === 'registro_estatistico' || clean === 'matricula') return 're';
+    if (clean === 'digito' || clean === 'digito_re') return 'digito_re';
+    if (clean === 'nome_completo' || clean === 'nome') return 'nome_completo';
+    if (clean === 'nome_de_guerra' || clean === 'nome_guerra' || clean === 'guerra') return 'nome_guerra';
+    if (clean === 'graduacao' || clean === 'posto' || clean === 'posto_graduacao') return 'graduacao';
+    if (clean === 'unidade' || clean === 'pelotao' || clean === 'sgb' || clean === 'batalhao') return 'unidade';
+    if (clean === 'situacao' || clean === 'status' || clean === 'situacao_funcional') return 'situacao';
+    if (clean === 'prontidao' || clean === 'equipe' || clean === 'ala') return 'prontidao';
+    if (clean === 'ordem_antiguidade' || clean === 'antiguidade' || clean === 'ordem') return 'ordem_antiguidade';
+    if (clean === 'email' || clean === 'email_vinculado' || clean === 'email_google') return 'email_vinculado';
+    if (clean === 'ativo' || clean === 'ativa') return 'ativo';
+    
+    return clean;
+  }
+
   return {
     /**
      * Permite injeção de mock de Spreadsheet para suíte de testes automatizados
@@ -104,7 +128,8 @@ const Repository = (function() {
       }
 
       const rawValues = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-      const headers = rawValues[0].map(h => String(h).trim());
+      const rawHeaders = rawValues[0].map(h => String(h).trim());
+      const normalizedHeaders = rawHeaders.map(normalizeHeaderName);
       const rows = [];
 
       for (let i = 1; i < rawValues.length; i++) {
@@ -114,19 +139,39 @@ const Repository = (function() {
         if (!hasData) continue;
 
         const obj = { _rowIndex: i + 1 }; // Linha real no Google Sheets (1-indexed)
-        for (let j = 0; j < headers.length; j++) {
-          const header = headers[j];
-          if (header) {
+        for (let j = 0; j < rawHeaders.length; j++) {
+          const rawH = rawHeaders[j];
+          const normH = normalizedHeaders[j];
+          if (rawH) {
             let val = rowData[j];
             // Tratar booleanos literais se gravados como texto
             if (val === 'TRUE' || val === true) val = true;
             else if (val === 'FALSE' || val === false) val = false;
-            obj[header] = val;
+            else if (val instanceof Date) {
+              const y = val.getFullYear();
+              const m = String(val.getMonth() + 1).padStart(2, '0');
+              const d = String(val.getDate()).padStart(2, '0');
+              val = `${y}-${m}-${d}`;
+            }
+
+            obj[rawH] = val;
+            if (normH) obj[normH] = val;
           }
         }
-        if (sheetName === Config.SHEETS.MILITARES && typeof ValidationService !== 'undefined' && ValidationService.normalizeMilitary) {
-          ValidationService.normalizeMilitary(obj);
+
+        if (sheetName === Config.SHEETS.MILITARES) {
+          // Garante fallback entre re e militar_id sem sobrescrever ID explícito
+          if (!obj.militar_id && obj.re) {
+            obj.militar_id = String(obj.re).replace(/\.0$/, '').trim();
+          }
+          if (!obj.re && obj.militar_id) {
+            obj.re = String(obj.militar_id).replace(/\.0$/, '').trim();
+          }
+          if (typeof ValidationService !== 'undefined' && ValidationService.normalizeMilitary) {
+            ValidationService.normalizeMilitary(obj);
+          }
         }
+
         rows.push(obj);
       }
 
