@@ -30,7 +30,23 @@
       setupTabNavigation();
       setupEventListeners();
       setupAdminForms();
-      loadInitialState();
+
+      const savedRe = localStorage.getItem('sisfolgas_session_re');
+      const loginScreen = document.getElementById('login-screen');
+      const appContainer = document.getElementById('app-container');
+
+      if (!savedRe) {
+        // Sem sessão: exibe Tela de Login dedicada e oculta o app
+        if (loginScreen) loginScreen.style.display = 'flex';
+        if (appContainer) appContainer.style.display = 'none';
+        const reInput = document.getElementById('login-screen-re');
+        if (reInput) setTimeout(() => reInput.focus(), 150);
+      } else {
+        // Sessão existente: oculta a tela de login, exibe o app e carrega dados
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'block';
+        loadInitialState();
+      }
     }
 
     function showLoading(text) {
@@ -178,16 +194,27 @@
 
         if (!data.authenticated) {
           state.authenticated = false;
-          state.user = {
-            email: 'Acesso por RE',
-            perfil: 'VISITANTE',
-            permissions: [],
-            militar: null,
-            isOwner: false
-          };
+          state.user = null;
+          localStorage.removeItem('sisfolgas_session_re');
+          const loginScreen = document.getElementById('login-screen');
+          const appContainer = document.getElementById('app-container');
+          if (appContainer) appContainer.style.display = 'none';
+          if (loginScreen) {
+            loginScreen.style.display = 'flex';
+            const errElem = document.getElementById('login-screen-error');
+            if (errElem) {
+              errElem.textContent = 'Sessão expirada ou militar não localizado. Identifique-se com seu RE.';
+              errElem.style.display = 'flex';
+            }
+          }
+          return;
         } else {
           state.authenticated = true;
           state.user = data.user;
+          const loginScreen = document.getElementById('login-screen');
+          const appContainer = document.getElementById('app-container');
+          if (loginScreen) loginScreen.style.display = 'none';
+          if (appContainer) appContainer.style.display = 'block';
 
           if (state.user && state.user.militar) {
             const teamVal = state.user.militar.prontidao || state.user.militar.equipe;
@@ -538,14 +565,6 @@
       const isMyTurn = (myRow && myRow.status_fila === 'SUA_VEZ');
       const hasChosen = (myRow && myRow.status_fila === 'ESCOLHIDO');
       const isWindowOpen = state.choiceWindow && state.choiceWindow.isOpen;
-
-      const banner = document.getElementById('choice-banner');
-      const bannerTitle = document.getElementById('choice-banner-title');
-      const bannerDesc = document.getElementById('choice-banner-desc');
-      const btnConfirmar = document.getElementById('btn-confirmar-escolha');
-      const btnAcumulo = document.getElementById('btn-solicitar-acumulo');
-      const confirmedBox = document.getElementById('confirmed-choice-box');
-
       // Botões e status da fase de trocas
       const swapBadge = document.getElementById('swap-phase-badge');
       const swapSubtitle = document.getElementById('swap-phase-subtitle');
@@ -976,9 +995,10 @@
         renderTeamQueue();
       });
 
-      // Header: Entrar / Trocar RE
-      document.getElementById('btn-header-login')?.addEventListener('click', () => {
-        abrirModalLogin();
+      // Formulário da Tela de Login dedicada (RE + Senha)
+      document.getElementById('form-login-screen')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        fazerLogin();
       });
 
       // Header: Alterar Senha
@@ -986,14 +1006,9 @@
         abrirModalAlterarSenha();
       });
 
-      // Header: Logout
+      // Header: Logout (Retorna à Tela de Login)
       document.getElementById('btn-header-logout')?.addEventListener('click', () => {
         fazerLogout();
-      });
-
-      // Modal Login Fechar
-      document.getElementById('btn-modal-close-login')?.addEventListener('click', () => {
-        fecharModalLogin();
       });
 
       // Modal Alterar Senha Fechar
@@ -1548,7 +1563,10 @@
       if (novaInput) novaInput.value = '';
       if (confInput) confInput.value = '';
 
-      if (modal) modal.style.display = 'flex';
+      if (modal) {
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+      }
       setTimeout(() => {
         if (atualInput) atualInput.focus();
       }, 100);
@@ -1556,40 +1574,69 @@
 
     function fecharModalAlterarSenha() {
       const modal = document.getElementById('modal-alterar-senha');
-      if (modal) modal.style.display = 'none';
+      if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+      }
     }
 
     async function fazerLogin(reParam, senhaParam) {
-      const re = (reParam || (document.getElementById('login-re') ? document.getElementById('login-re').value : '') || '').trim();
-      const senhaVal = senhaParam !== undefined ? senhaParam : (document.getElementById('login-senha') ? document.getElementById('login-senha').value : '');
-      const senha = (senhaVal || '').trim();
-      const errElem = document.getElementById('login-error-msg');
+      const reInput = document.getElementById('login-screen-re') || document.getElementById('login-re');
+      const senhaInput = document.getElementById('login-screen-senha') || document.getElementById('login-senha');
+      const errElem = document.getElementById('login-screen-error') || document.getElementById('login-error-msg');
+
+      const re = (reParam || (reInput ? reInput.value : '') || '').trim();
+      const senhaVal = senhaParam !== undefined ? senhaParam : (senhaInput ? senhaInput.value : '');
+      let senha = (senhaVal || '').trim();
+
+      if (errElem) {
+        errElem.style.display = 'none';
+        errElem.textContent = '';
+      }
 
       if (!re) {
         if (errElem) {
-          errElem.textContent = 'Informe o seu número de RE.';
-          errElem.style.display = 'block';
+          errElem.textContent = 'Informe o seu número de RE para acessar.';
+          errElem.style.display = 'flex';
         }
         return;
       }
 
+      // No formato RE + RE, caso a senha esteja vazia, assume o próprio RE como padrão
+      if (!senha) {
+        senha = re;
+      }
+
       try {
-        showLoading('Validando credenciais...');
-        const res = await callServer('apiLogin', { re: re, senha: senha || re }, 'Autenticando...');
-        const resolvedRe = (res && res.militar && res.militar.re) ? res.militar.re : re;
+        showLoading('Validando credenciais do militar...');
+        const res = await callServer('apiLogin', { re: re, senha: senha }, 'Autenticando...');
+        const resolvedRe = (res && res.militar && (res.militar.re || res.militar.militar_id)) 
+          ? (res.militar.re || res.militar.militar_id) 
+          : re;
         localStorage.setItem('sisfolgas_session_re', resolvedRe);
+
         if (res && res.user) {
           state.authenticated = true;
           state.user = res.user;
-          renderUserInfo();
         }
-        fecharModalLogin();
-        showToast(`Bem-vindo, ${res && res.militar ? res.militar.nome_guerra : resolvedRe}!`, 'success');
+
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.getElementById('app-container');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appContainer) appContainer.style.display = 'block';
+
+        if (senhaInput) senhaInput.value = '';
+
+        const militarNome = (res && res.militar) 
+          ? `${res.militar.graduacao || ''} ${res.militar.nome_guerra || resolvedRe}`.trim()
+          : resolvedRe;
+        showToast(`Bem-vindo, ${militarNome}! Acesso confirmado.`, 'success');
+
         await loadInitialState();
       } catch (err) {
         if (errElem) {
           errElem.textContent = err.message || 'Falha ao autenticar com o RE fornecido.';
-          errElem.style.display = 'block';
+          errElem.style.display = 'flex';
         }
       }
     }
@@ -1645,8 +1692,24 @@
 
     function fazerLogout() {
       localStorage.removeItem('sisfolgas_session_re');
-      showToast('Você saiu da sessão. Faça login com seu RE para acessar suas folgas.', 'info');
-      loadInitialState();
+      state.authenticated = false;
+      state.user = null;
+
+      const appContainer = document.getElementById('app-container');
+      const loginScreen = document.getElementById('login-screen');
+
+      if (appContainer) appContainer.style.display = 'none';
+      if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        const senhaInput = document.getElementById('login-screen-senha') || document.getElementById('login-senha');
+        if (senhaInput) senhaInput.value = '';
+        const errElem = document.getElementById('login-screen-error') || document.getElementById('login-error-msg');
+        if (errElem) errElem.style.display = 'none';
+        const reInput = document.getElementById('login-screen-re') || document.getElementById('login-re');
+        if (reInput) setTimeout(() => reInput.focus(), 150);
+      }
+
+      showToast('Você encerrou sua sessão com segurança.', 'info');
     }
 
     function entrarComMilitarRe(re) {

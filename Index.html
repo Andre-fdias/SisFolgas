@@ -10,37 +10,100 @@
 </head>
 <body>
 
-  <!-- Top Navigation Header -->
-  <header class="app-header">
-    <div class="header-container">
-      <div class="brand-group">
-        <div class="brand-badge" id="app-badge">🚒</div>
-        <div class="brand-title">
-          <h1 id="app-title">Sistema de Escolha de Folgas</h1>
-          <p id="app-subtitle">Corpo de Bombeiros Militar • Escala 24x48</p>
-        </div>
+  <!-- ========================================================================
+       TELA DE LOGIN DEDICADA (Acesso Inicial Direto por RE + RE)
+       Exibida prioritariamente quando o militar não estiver autenticado.
+       ======================================================================== -->
+  <section id="login-screen" class="login-screen" style="display: flex;">
+    <div class="login-card-container">
+      <div class="login-brand-header">
+        <div class="login-badge-icon">🚒</div>
+        <h1 class="login-brand-title">SisFolgas • CBM</h1>
+        <p class="login-brand-sub">Sistema de Gerenciamento e Escolha de Folgas</p>
+        <span class="login-brand-tag">Corpo de Bombeiros Militar • Escala 24x48</span>
       </div>
 
-      <div class="user-badge-group">
-        <div class="user-pill" id="user-info-pill">
-          <span id="user-display-name">Carregando autenticação...</span>
-          <span class="user-role-tag" id="user-role-badge">...</span>
+      <div class="login-card">
+        <div class="login-card-header">
+          <h2>Identificação Operacional</h2>
+          <p>Informe seu RE e Senha para acessar a escala</p>
         </div>
-        <button class="btn btn-secondary btn-header-action" id="btn-header-alterar-senha" title="Alterar minha senha de acesso" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem;">
-          🔑 Trocar Senha
-        </button>
-        <button class="btn btn-secondary btn-header-action" id="btn-header-login" title="Acessar com outro RE" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
-          🔓 Entrar / Trocar RE
-        </button>
-        <button class="btn btn-secondary btn-header-action" id="btn-header-logout" title="Sair da sessão" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
-          🚪 Sair
-        </button>
+
+        <div class="login-info-box">
+          <div class="login-info-icon">ℹ️</div>
+          <div class="login-info-text">
+            <strong>Padrão de Acesso:</strong><br>
+            Usuário: seu número de <strong>RE</strong><br>
+            Senha inicial: seu próprio <strong>RE</strong><br>
+            <span style="font-size: 0.78rem; opacity: 0.85;">A troca de senha é opcional após entrar no sistema.</span>
+          </div>
+        </div>
+
+        <div id="login-screen-error" class="login-error-alert" style="display: none;"></div>
+
+        <form id="form-login-screen" onsubmit="event.preventDefault(); App.fazerLogin();">
+          <div class="form-group">
+            <label class="form-label" for="login-screen-re">Número do RE (Identificador Oficial):</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🪪</span>
+              <input type="text" class="form-input" id="login-screen-re" placeholder="Ex: 10101 ou 20201" required autocomplete="username" autofocus>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-screen-senha">Senha de Acesso:</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🔒</span>
+              <input type="password" class="form-input" id="login-screen-senha" placeholder="Digite seu RE ou senha" required autocomplete="current-password">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-login-submit" id="btn-login-screen-submit">
+            🔓 Entrar no Sistema
+          </button>
+        </form>
+
+        <div class="login-card-footer">
+          <span>🛡️ Acesso restrito ao efetivo operacional • Sistema Seguro</span>
+        </div>
       </div>
     </div>
-  </header>
+  </section>
 
-  <!-- Main Container -->
-  <main class="main-wrapper">
+  <!-- ========================================================================
+       APLICAÇÃO COMPLETA (DASHBOARD, ESCOLHAS, FILAS, EFETIVO, GESTÃO)
+       Exibida apenas após autenticação com sucesso.
+       ======================================================================== -->
+  <div id="app-container" class="app-container" style="display: none;">
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-container">
+        <div class="brand-group">
+          <div class="brand-badge" id="app-badge">🚒</div>
+          <div class="brand-title">
+            <h1 id="app-title">Sistema de Escolha de Folgas</h1>
+            <p id="app-subtitle">Corpo de Bombeiros Militar • Escala 24x48</p>
+          </div>
+        </div>
+
+        <div class="user-badge-group">
+          <div class="user-pill" id="user-info-pill">
+            <span id="user-display-name">Carregando autenticação...</span>
+            <span class="user-role-tag" id="user-role-badge">...</span>
+          </div>
+          <button class="btn btn-secondary btn-header-action" id="btn-header-alterar-senha" title="Alterar minha senha de acesso" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+            🔑 Trocar Senha
+          </button>
+          <button class="btn btn-secondary btn-header-action" id="btn-header-logout" title="Sair da sessão" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.75rem; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
+            🚪 Sair
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-wrapper">
 
     <!-- Banner de Erro Global de Conexão com o Banco -->
     <div id="global-error-banner" style="display: none; margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(153, 27, 27, 0.45), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(239, 68, 68, 0.6); border-radius: var(--radius-lg); padding: 1rem 1.5rem; align-items: center; justify-content: space-between; gap: 1rem; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);">
@@ -752,56 +815,15 @@
     </div>
   </div>
 
-  <!-- Modal de Login com RE e Senha (Senha padrão = RE) -->
-  <div class="modal-overlay" id="modal-login">
-    <div class="modal-card auth-modal-card">
-      <div class="modal-header">
-        <div class="auth-header">
-          <div class="auth-badge-icon">🚒</div>
-          <div>
-            <h3 style="color: #fff; margin: 0; font-size: 1.2rem;">Acesso ao SisFolgas - CBM</h3>
-            <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0.2rem 0 0 0;">Identifique-se com seu RE para acessar suas folgas</p>
-          </div>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
-          <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.4;">
-            ℹ️ <strong>Senha Padrão Inicial:</strong> Seu próprio número de <strong>RE</strong>.<br>
-            Após o primeiro acesso, você poderá alterar sua senha a qualquer momento no botão <em>"Trocar Senha"</em> se desejar.
-          </div>
-        </div>
-
-        <form id="form-login-re" onsubmit="event.preventDefault(); App.fazerLogin();">
-          <div class="form-group">
-            <label class="form-label" for="login-re">Número do RE (Identificador do Militar):</label>
-            <input type="text" class="form-input" id="login-re" placeholder="Ex: 10101, 10202 ou admin" required autocomplete="username" style="font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px;">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="login-senha">Senha de Acesso:</label>
-            <input type="password" class="form-input" id="login-senha" placeholder="Padrão inicial = seu RE" required autocomplete="current-password" style="font-size: 1.05rem;">
-          </div>
-          <div id="login-error-msg" style="display: none; color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 600;"></div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btn-modal-close-login">Fechar</button>
-        <button type="button" class="btn btn-primary" id="btn-modal-confirm-login" onclick="App.fazerLogin();">
-          🔓 Entrar no Sistema
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal de Alteração de Senha (CRUD de Senha) -->
+  <!-- Modal de Alteração de Senha (CRUD de Senha para o Militar Logado) -->
   <div class="modal-overlay" id="modal-alterar-senha">
     <div class="modal-card auth-modal-card">
       <div class="modal-header">
-        <div class="auth-header">
-          <div class="auth-badge-icon">🔑</div>
+        <div class="auth-header" style="margin-bottom: 0;">
+          <div class="auth-badge-icon" style="font-size: 2.2rem; margin-bottom: 0.25rem;">🔑</div>
           <div>
-            <h3 style="color: #fff; margin: 0; font-size: 1.2rem;">Alteração de Senha</h3>
-            <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0.2rem 0 0 0;">Defina uma nova senha pessoal para o seu RE</p>
+            <h3 style="color: #fff; margin: 0; font-size: 1.15rem;">Alteração de Senha</h3>
+            <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.2rem 0 0 0;">Defina uma nova senha pessoal para o seu RE</p>
           </div>
         </div>
       </div>
@@ -838,6 +860,8 @@
       </div>
     </div>
   </div>
+
+  </div> <!-- /#app-container -->
 
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
