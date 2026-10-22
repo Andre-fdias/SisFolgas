@@ -27,7 +27,7 @@ if (typeof module !== 'undefined' && module.exports) {
  */
 function doGet(e) {
   try {
-    const appTitle = (typeof Config !== 'undefined' && Config.APP_NAME) ? Config.APP_NAME : 'Sistema de Escolha de Folgas - CBM';
+    const appTitle = (typeof Config !== 'undefined' && Config.APP_NAME) ? Config.APP_NAME : 'SisFolgas- São Roque';
     const template = HtmlService.createTemplateFromFile('Index');
     return template.evaluate()
       .setTitle(appTitle)
@@ -50,8 +50,8 @@ function doGet(e) {
           <pre style="text-align: left; background: #fef2f2; color: #991b1b; padding: 1.2rem; border-radius: 8px; overflow: auto; border: 1px solid #fecaca; font-size: 0.85rem; line-height: 1.5; font-family: Consolas, Monaco, monospace; white-space: pre-wrap;">${detalhesErro}</pre>
         </div>
         <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #94a3b8;">
-          <span>Código: CBM-INIT-TRACE</span>
-          <span>SisFolgas CBM</span>
+          <span>Código: SRO-INIT-TRACE</span>
+          <span>SisFolgas- São Roque</span>
         </div>
       </div>
     `);

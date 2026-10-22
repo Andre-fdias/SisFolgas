@@ -4,7 +4,7 @@
  */
 
 const Config = {
-  APP_NAME: 'Sistema de Escolha de Folgas - CBM',
+  APP_NAME: 'SisFolgas- São Roque',
   APP_VERSION: '1.0.0',
   SCHEMA_VERSION: '1.0.0',
 

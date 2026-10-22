@@ -143,14 +143,14 @@ const server = http.createServer((req, res) => {
       const devBridge = `
         <div id="dev-user-bar" style="background: #1e1b4b; border-bottom: 2px solid #6366f1; padding: 0.6rem 1.5rem; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 0.82rem; color: #e0e7ff; z-index: 9999; position: sticky; top: 0; flex-wrap: wrap; gap: 0.5rem;">
           <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (Simulador Local CBM)</strong>
+            <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (2º SGB- Eb São Roque)</strong>
             <span>| Alternar Usuário:</span>
             <select id="dev-user-select" style="background: #312e81; color: #fff; border: 1px solid #6366f1; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;">
               <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (RE 10101 • Prontidão Verde - Antiguidade Geral 1º - É A VEZ)</option>
               <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (RE 10102 • Prontidão Verde - Antiguidade Geral 2º)</option>
               <option value="souza.teste@gmail.com">👨‍🚒 1º Ten Souza (RE 10201 • Prontidão Amarela - Antiguidade Geral 8º - É A VEZ)</option>
               <option value="pereira.teste@gmail.com">👨‍🚒 Cap Pereira (RE 10301 • Prontidão Azul - Antiguidade Geral 15º - É A VEZ)</option>
-              <option value="admin.cbm@gmail.com">👨‍💼 Administrador CBM (admin)</option>
+              <option value="admin.cbm@gmail.com">👨‍💼 Administrador (admin)</option>
             </select>
 
             <button id="btn-quick-switch-admin" style="background: #4338ca; color: #fff; border: 1px solid #818cf8; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
