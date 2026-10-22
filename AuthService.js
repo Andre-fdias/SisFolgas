@@ -55,12 +55,26 @@ const AuthService = (function() {
 
       let user = null;
       if (isAdminLogin) {
-        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN);
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN) ||
+               Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', 'admin');
+        if (!user) {
+          user = {
+            usuario_id: ValidationService.generateUuid(),
+            email_google: 'admin@sisfolgas.cbm',
+            militar_id: 'admin',
+            senha: 'admin',
+            perfil: Config.ROLES.ADMIN,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.USUARIOS, user);
+        }
       } else {
         user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
       }
 
-      let militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+      let militar = isAdminLogin ? null : (MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe));
 
       if (!user && militar) {
         user = {
@@ -87,15 +101,15 @@ const AuthService = (function() {
         };
       }
 
-      const permissions = Config.ROLE_PERMISSIONS[user.perfil] || [];
+      const permissions = Config.ROLE_PERMISSIONS[user.perfil] || (isAdminLogin ? Config.ROLE_PERMISSIONS.ADMIN : []);
 
       return {
         authenticated: true,
-        email: user.email_google || `${cleanRe}@sisfolgas.local`,
+        email: user.email_google || (isAdminLogin ? 'admin@sisfolgas.cbm' : `${cleanRe}@sisfolgas.local`),
         sessionRe: cleanRe,
-        isOwner: user.perfil === Config.ROLES.ADMIN,
+        isOwner: isAdminLogin || (user.perfil === Config.ROLES.ADMIN),
         usuario_id: user.usuario_id,
-        perfil: user.perfil,
+        perfil: user.perfil || (isAdminLogin ? Config.ROLES.ADMIN : Config.ROLES.MILITAR),
         permissions: permissions,
         militar: militar,
         error: null
@@ -122,12 +136,26 @@ const AuthService = (function() {
 
       let user = null;
       if (isAdminLogin) {
-        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN);
+        user = Repository.findOne(Config.SHEETS.USUARIOS, 'perfil', Config.ROLES.ADMIN) ||
+               Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', 'admin');
+        if (!user) {
+          user = {
+            usuario_id: ValidationService.generateUuid(),
+            email_google: 'admin@sisfolgas.cbm',
+            militar_id: 'admin',
+            senha: 'admin',
+            perfil: Config.ROLES.ADMIN,
+            ativo: true,
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString()
+          };
+          Repository.insert(Config.SHEETS.USUARIOS, user);
+        }
       } else {
         user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
       }
 
-      let militar = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+      let militar = isAdminLogin ? null : (MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe));
 
       if (!user) {
         if (militar) {
@@ -151,17 +179,17 @@ const AuthService = (function() {
       const inputSenha = String(senha).trim();
 
       if (inputSenha !== expectedSenha) {
-        throw new Error('Senha incorreta. A senha padrão inicial é o seu próprio RE.');
+        throw new Error(isAdminLogin ? 'Senha incorreta para o Administrador.' : 'Senha incorreta. A senha padrão inicial é o seu próprio RE.');
       }
 
       AuditService.log({
-        userEmail: user ? user.email_google : `${cleanRe}@sisfolgas.local`,
+        userEmail: user ? user.email_google : (isAdminLogin ? 'admin@sisfolgas.cbm' : `${cleanRe}@sisfolgas.local`),
         militarId: cleanRe,
         acao: 'LOGIN_SUCESSO',
         entidade: 'USUARIOS',
         registroId: user ? user.usuario_id : cleanRe,
         resultado: Config.AUDIT_RESULT.SUCESSO,
-        justificativa: `Login realizado com sucesso via RE e Senha pelo militar ${cleanRe}`
+        justificativa: `Login realizado com sucesso via RE e Senha pelo usuário ${cleanRe}`
       });
 
       return {
@@ -169,11 +197,11 @@ const AuthService = (function() {
         authenticated: true,
         sessionRe: cleanRe,
         user: {
-          email: user ? user.email_google : `${cleanRe}@sisfolgas.local`,
-          perfil: user ? user.perfil : Config.ROLES.MILITAR,
-          permissions: Config.ROLE_PERMISSIONS[user ? user.perfil : Config.ROLES.MILITAR] || [],
+          email: user ? user.email_google : (isAdminLogin ? 'admin@sisfolgas.cbm' : `${cleanRe}@sisfolgas.local`),
+          perfil: user ? user.perfil : (isAdminLogin ? Config.ROLES.ADMIN : Config.ROLES.MILITAR),
+          permissions: Config.ROLE_PERMISSIONS[user ? user.perfil : (isAdminLogin ? Config.ROLES.ADMIN : Config.ROLES.MILITAR)] || [],
           militar: militar ? ValidationService.sanitizeMilitaryDto(militar, true) : null,
-          isOwner: user ? (user.perfil === Config.ROLES.ADMIN) : false
+          isOwner: isAdminLogin || (user && user.perfil === Config.ROLES.ADMIN)
         },
         militar: militar ? ValidationService.sanitizeMilitaryDto(militar, true) : null,
         mensagem: `Acesso realizado com sucesso! Bem-vindo(a), ${militar ? (militar.graduacao + ' ' + militar.nome_guerra) : 'Administrador'}.`

@@ -39,7 +39,11 @@ const ValidationService = {
     if (re === null || re === undefined) {
       throw new Error('RE não informado.');
     }
-    const clean = String(re).replace(/\D/g, '');
+    const str = String(re).trim();
+    if (str.toLowerCase() === 'admin') {
+      return 'admin';
+    }
+    const clean = str.replace(/\D/g, '');
     if (clean.length < 4 || clean.length > 8) {
       throw new Error(`RE inválido: '${re}'. Deve conter entre 4 e 8 dígitos.`);
     }
@@ -60,14 +64,19 @@ const ValidationService = {
 
   /**
    * Valida e normaliza competência para o padrão ISO (YYYY-MM).
-   * Aceita tanto o formato militar corporativo (NOV26, DEZ26, JAN27) quanto ISO (2026-11).
+   * Aceita tanto o formato militar corporativo (NOV26, DEZ26, JAN27) quanto ISO (2026-11, 2026-11-26).
    */
   validateCompetencia: function(comp) {
-    if (!comp || typeof comp !== 'string') {
+    if (!comp) {
       throw new Error('Competência deve ser informada (ex: NOV26 ou 2026-11).');
     }
-    const clean = comp.trim().toUpperCase().replace('/', '');
-    const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[-]?(\d{2})$/);
+    if (comp instanceof Date && !isNaN(comp.getTime())) {
+      const year = comp.getFullYear();
+      const m = comp.getMonth() + 1;
+      return `${year}-${m < 10 ? '0' + m : m}`;
+    }
+    const clean = String(comp).trim().toUpperCase();
+    const milMatch = clean.match(/(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[\s\/\-\.]*(\d{2,4})/);
     if (milMatch) {
       const months = {
         'JAN': '01', 'FEV': '02', 'MAR': '03', 'ABR': '04',
@@ -75,33 +84,76 @@ const ValidationService = {
         'SET': '09', 'OUT': '10', 'NOV': '11', 'DEZ': '12'
       };
       const monthStr = months[milMatch[1]];
-      const yearStr = '20' + milMatch[2];
+      const yearStr = milMatch[2].length === 2 ? ('20' + milMatch[2]) : milMatch[2];
       return `${yearStr}-${monthStr}`;
     }
-    const match = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-    if (!match) {
-      throw new Error(`Competência inválida: '${comp}'. Formato esperado: NOV26 ou YYYY-MM.`);
+    const isoMatch = clean.match(/^(\d{4})-(0[1-9]|1[0-2])/);
+    if (isoMatch) {
+      return `${isoMatch[1]}-${isoMatch[2]}`;
     }
-    return clean;
+    const brMatch = clean.match(/(?:(\d{1,2})[\/\-\.])?(0[1-9]|1[0-2])[\/\-\.](\d{2,4})/);
+    if (brMatch) {
+      const yearStr = brMatch[3].length === 2 ? ('20' + brMatch[3]) : brMatch[3];
+      return `${yearStr}-${brMatch[2]}`;
+    }
+    throw new Error(`Competência inválida: '${comp}'. Formato esperado: NOV26 ou YYYY-MM.`);
   },
 
   /**
-   * Formata competência para o padrão oficial militar (ex: 2026-11 -> NOV26, 2027-01 -> JAN27)
+   * Formata competência estritamente para o padrão oficial militar (ex: NOV26, DEZ26, JAN27).
+   * Converte confiavelmente strings ISO (ex: 2026-11-26 -> NOV26), objetos Date e datas com barras.
    */
   formatCompetencia: function(comp) {
-    if (!comp || typeof comp !== 'string') return '--';
-    const clean = comp.trim().toUpperCase().replace('/', '');
-    const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)(\d{2})$/);
-    if (milMatch) return clean;
+    if (!comp || comp === '--') return '--';
 
-    const isoMatch = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-    if (isoMatch) {
+    if (comp instanceof Date && !isNaN(comp.getTime())) {
       const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-      const monthIdx = parseInt(isoMatch[2], 10) - 1;
-      const yearShort = isoMatch[1].slice(-2);
-      return `${months[monthIdx]}${yearShort}`;
+      const month = months[comp.getMonth()];
+      const year = String(comp.getFullYear()).slice(-2);
+      return `${month}${year}`;
     }
-    return comp;
+
+    const str = String(comp).trim().toUpperCase();
+
+    // 1. Formato militar direto (ex: NOV26, NOV/26, NOV-26, NOV 26, NOV/2026)
+    const milMatch = str.match(/(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[\s\/\-\.]*(\d{2,4})/);
+    if (milMatch) {
+      return `${milMatch[1]}${milMatch[2].slice(-2)}`;
+    }
+
+    // 2. Meses por extenso em português
+    const fullMonths = {
+      'JANEIRO': 'JAN', 'FEVEREIRO': 'FEV', 'MARCO': 'MAR', 'MARÇO': 'MAR',
+      'ABRIL': 'ABR', 'MAIO': 'MAI', 'JUNHO': 'JUN', 'JULHO': 'JUL',
+      'AGOSTO': 'AGO', 'SETEMBRO': 'SET', 'OUTUBRO': 'OUT', 'NOVEMBRO': 'NOV', 'DEZEMBRO': 'DEZ'
+    };
+    for (const [full, abbr] of Object.entries(fullMonths)) {
+      if (str.includes(full)) {
+        const yearMatch = str.match(/\d{2,4}/);
+        const y = yearMatch ? yearMatch[0].slice(-2) : '26';
+        return `${abbr}${y}`;
+      }
+    }
+
+    const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+    // 3. Formato ISO YYYY-MM ou YYYY-MM-DD (ex: 2026-11-26 -> NOV26, 2026-11 -> NOV26)
+    const isoMatch = str.match(/^(\d{4})-(0[1-9]|1[0-2])/);
+    if (isoMatch) {
+      const y = isoMatch[1].slice(-2);
+      const mIdx = parseInt(isoMatch[2], 10) - 1;
+      return `${months[mIdx]}${y}`;
+    }
+
+    // 4. Formato brasileiro DD/MM/YYYY ou MM/YYYY ou MM/YY (ex: 26/11/2026 -> NOV26)
+    const brMatch = str.match(/(?:(\d{1,2})[\/\-\.])?(0[1-9]|1[0-2])[\/\-\.](\d{2,4})/);
+    if (brMatch) {
+      const mIdx = parseInt(brMatch[2], 10) - 1;
+      const y = brMatch[3].slice(-2);
+      return `${months[mIdx]}${y}`;
+    }
+
+    return str;
   },
 
   /**

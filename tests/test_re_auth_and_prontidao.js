@@ -171,4 +171,34 @@ test('Verificação das Regras Específicas: RE/Senha Padrão, CRUD de Senha e C
     const resRpcLoginNew = Code.apiLogin({ re: '20201', senha: 'tenente2026' });
     assert.equal(resRpcLoginNew.success, true);
   });
+
+  await t.test('7. Formato oficial militar de competência: NOV26, DEZ26, JAN27', () => {
+    assert.equal(ValidationService.formatCompetencia('2026-11-26'), 'NOV26');
+    assert.equal(ValidationService.formatCompetencia('2026-11'), 'NOV26');
+    assert.equal(ValidationService.formatCompetencia('NOV26'), 'NOV26');
+    assert.equal(ValidationService.formatCompetencia('NOV/26'), 'NOV26');
+    assert.equal(ValidationService.formatCompetencia('2026-12-15'), 'DEZ26');
+    assert.equal(ValidationService.formatCompetencia('2026-12'), 'DEZ26');
+    assert.equal(ValidationService.formatCompetencia('DEZ26'), 'DEZ26');
+    assert.equal(ValidationService.formatCompetencia('2027-01-05'), 'JAN27');
+    assert.equal(ValidationService.formatCompetencia('2027-01'), 'JAN27');
+    assert.equal(ValidationService.formatCompetencia('JAN27'), 'JAN27');
+    assert.equal(ValidationService.formatCompetencia('26/11/2026'), 'NOV26');
+    assert.equal(ValidationService.formatCompetencia(new Date(2026, 10, 26)), 'NOV26');
+  });
+
+  await t.test('8. Acesso do Usuário Administrador (admin / admin)', () => {
+    const resAdminLogin = Code.apiLogin({ re: 'admin', senha: 'admin' });
+    assert.equal(resAdminLogin.success, true);
+    assert.equal(resAdminLogin.data.user.perfil, Config.ROLES.ADMIN);
+    assert.equal(resAdminLogin.data.user.isOwner, true);
+    assert.ok(resAdminLogin.data.user.permissions.includes(Config.PERMISSIONS.MANAGE_PERIODS));
+    assert.ok(resAdminLogin.data.user.permissions.includes(Config.PERMISSIONS.RUN_DIAGNOSTICS));
+
+    const adminCtx = AuthService.getUserContextByRe('admin');
+    assert.equal(adminCtx.authenticated, true);
+    assert.equal(adminCtx.perfil, Config.ROLES.ADMIN);
+    assert.equal(adminCtx.isOwner, true);
+  });
 });
+

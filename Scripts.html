@@ -762,18 +762,56 @@
 
     function formatCompetencia(comp) {
       if (!comp || comp === '--') return '--';
-      const clean = String(comp).trim().toUpperCase().replace('/', '');
-      const milMatch = clean.match(/^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)(\d{2})$/);
-      if (milMatch) return clean;
 
-      const isoMatch = clean.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-      if (isoMatch) {
+      // Se for objeto Date
+      if (comp instanceof Date && !isNaN(comp.getTime())) {
         const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-        const monthIdx = parseInt(isoMatch[2], 10) - 1;
-        const yearShort = isoMatch[1].slice(-2);
-        return `${months[monthIdx]}${yearShort}`;
+        const month = months[comp.getMonth()];
+        const year = String(comp.getFullYear()).slice(-2);
+        return `${month}${year}`;
       }
-      return comp;
+
+      const str = String(comp).trim().toUpperCase();
+
+      // 1. Formato militar direto (ex: NOV26, NOV/26, NOV-26, NOV 26, NOV/2026)
+      const milMatch = str.match(/(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[\s\/\-\.]*(\d{2,4})/);
+      if (milMatch) {
+        return `${milMatch[1]}${milMatch[2].slice(-2)}`;
+      }
+
+      // 2. Meses por extenso em português
+      const fullMonths = {
+        'JANEIRO': 'JAN', 'FEVEREIRO': 'FEV', 'MARCO': 'MAR', 'MARÇO': 'MAR',
+        'ABRIL': 'ABR', 'MAIO': 'MAI', 'JUNHO': 'JUN', 'JULHO': 'JUL',
+        'AGOSTO': 'AGO', 'SETEMBRO': 'SET', 'OUTUBRO': 'OUT', 'NOVEMBRO': 'NOV', 'DEZEMBRO': 'DEZ'
+      };
+      for (const [full, abbr] of Object.entries(fullMonths)) {
+        if (str.includes(full)) {
+          const yearMatch = str.match(/\d{2,4}/);
+          const y = yearMatch ? yearMatch[0].slice(-2) : '26';
+          return `${abbr}${y}`;
+        }
+      }
+
+      const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+      // 3. Formato ISO YYYY-MM ou YYYY-MM-DD (ex: 2026-11-26 -> NOV26, 2026-11 -> NOV26)
+      const isoMatch = str.match(/^(\d{4})-(0[1-9]|1[0-2])/);
+      if (isoMatch) {
+        const y = isoMatch[1].slice(-2);
+        const mIdx = parseInt(isoMatch[2], 10) - 1;
+        return `${months[mIdx]}${y}`;
+      }
+
+      // 4. Formato brasileiro DD/MM/YYYY ou MM/YYYY ou MM/YY (ex: 26/11/2026 -> NOV26)
+      const brMatch = str.match(/(?:(\d{1,2})[\/\-\.])?(0[1-9]|1[0-2])[\/\-\.](\d{2,4})/);
+      if (brMatch) {
+        const mIdx = parseInt(brMatch[2], 10) - 1;
+        const y = brMatch[3].slice(-2);
+        return `${months[mIdx]}${y}`;
+      }
+
+      return str;
     }
 
     /* ==========================================================================
