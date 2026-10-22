@@ -71,7 +71,13 @@ const AuthService = (function() {
           Repository.insert(Config.SHEETS.USUARIOS, user);
         }
       } else {
-        user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
+        const allUsers = Repository.getAll(Config.SHEETS.USUARIOS);
+        user = allUsers.find(function(u) {
+          const uId = String(u.militar_id || '').trim();
+          const uDigits = uId.replace(/\D/g, '');
+          const u6 = uDigits.length >= 6 ? uDigits.slice(0, 6) : uDigits;
+          return uId === cleanRe || uDigits === cleanRe || u6 === cleanRe;
+        }) || null;
       }
 
       let militar = isAdminLogin ? null : (MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe));
@@ -152,7 +158,13 @@ const AuthService = (function() {
           Repository.insert(Config.SHEETS.USUARIOS, user);
         }
       } else {
-        user = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', cleanRe);
+        const allUsers = Repository.getAll(Config.SHEETS.USUARIOS);
+        user = allUsers.find(function(u) {
+          const uId = String(u.militar_id || '').trim();
+          const uDigits = uId.replace(/\D/g, '');
+          const u6 = uDigits.length >= 6 ? uDigits.slice(0, 6) : uDigits;
+          return uId === cleanRe || uDigits === cleanRe || u6 === cleanRe;
+        }) || null;
       }
 
       let militar = isAdminLogin ? null : (MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe));

@@ -69,17 +69,56 @@ const MilitaryService = (function() {
      */
     getById: function(militarId) {
       if (!militarId) return null;
-      const clean = String(militarId).trim();
-      return Repository.findOne(Config.SHEETS.MILITARES, 're', clean) ||
-             Repository.findOne(Config.SHEETS.MILITARES, 'militar_id', clean);
+      const cleanId = String(militarId).trim();
+      const cleanDigits = cleanId.replace(/\D/g, '');
+      const clean6 = cleanDigits.length >= 6 ? cleanDigits.slice(0, 6) : cleanDigits;
+
+      const all = Repository.getAll(Config.SHEETS.MILITARES);
+      return all.find(function(m) {
+        const rawId = String(m.militar_id || '').trim();
+        const rawRe = String(m.re || '').trim();
+        const rawIdDigits = rawId.replace(/\D/g, '');
+        const rawReDigits = rawRe.replace(/\D/g, '');
+        const id6 = rawIdDigits.length >= 6 ? rawIdDigits.slice(0, 6) : rawIdDigits;
+        const re6 = rawReDigits.length >= 6 ? rawReDigits.slice(0, 6) : rawReDigits;
+
+        return rawId === cleanId ||
+               rawRe === cleanId ||
+               (cleanDigits && (rawIdDigits === cleanDigits || rawReDigits === cleanDigits)) ||
+               (clean6 && (id6 === clean6 || re6 === clean6));
+      }) || null;
     },
 
     /**
      * Busca militar por RE normalizado
      */
     getByRE: function(re) {
-      const cleanRe = ValidationService.normalizeRE(re);
-      return Repository.findOne(Config.SHEETS.MILITARES, 're', cleanRe);
+      if (!re) return null;
+      let cleanRe = '';
+      try {
+        cleanRe = ValidationService.normalizeRE(re);
+      } catch (e) {
+        cleanRe = String(re).replace(/\D/g, '');
+        if (cleanRe.length === 7) cleanRe = cleanRe.slice(0, 6);
+      }
+
+      const all = Repository.getAll(Config.SHEETS.MILITARES);
+      return all.find(function(m) {
+        const rawRe = String(m.re || '').trim();
+        const rawReDigits = rawRe.replace(/\D/g, '');
+        const re6 = rawReDigits.length >= 6 ? rawReDigits.slice(0, 6) : rawReDigits;
+
+        const rawId = String(m.militar_id || '').trim();
+        const rawIdDigits = rawId.replace(/\D/g, '');
+        const id6 = rawIdDigits.length >= 6 ? rawIdDigits.slice(0, 6) : rawIdDigits;
+
+        return rawRe === cleanRe ||
+               rawReDigits === cleanRe ||
+               re6 === cleanRe ||
+               rawId === cleanRe ||
+               rawIdDigits === cleanRe ||
+               id6 === cleanRe;
+      }) || null;
     },
 
     /**

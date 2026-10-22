@@ -200,5 +200,51 @@ test('Verificação das Regras Específicas: RE/Senha Padrão, CRUD de Senha e C
     assert.equal(adminCtx.perfil, Config.ROLES.ADMIN);
     assert.equal(adminCtx.isOwner, true);
   });
+
+  await t.test('9. Regra Oficial: RE sempre de 6 dígitos entre 100000 e 999999 (Ex: 982635)', () => {
+    // Normalização válida
+    assert.equal(ValidationService.normalizeRE('982635'), '982635');
+    assert.equal(ValidationService.normalizeRE('982635-1'), '982635');
+    assert.equal(ValidationService.normalizeRE('100000'), '100000');
+    assert.equal(ValidationService.normalizeRE('999999'), '999999');
+
+    // Rejeições
+    assert.throws(() => ValidationService.normalizeRE('099999'), /entre 100000 e 999999/);
+    assert.throws(() => ValidationService.normalizeRE('1234'), /exatamente 6 dígitos/);
+    assert.throws(() => ValidationService.normalizeRE('12345678'), /exatamente 6 dígitos/);
+
+    // Cadastra militar com RE real de 6 dígitos 982635
+    Repository.insert(Config.SHEETS.MILITARES, {
+      militar_id: '982635',
+      re: '982635',
+      digito_re: '1',
+      nome_completo: 'Militar São Roque Real',
+      nome_guerra: 'São Roque',
+      graduacao: '1º Sgt PM',
+      unidade: '2º SGB- Eb São Roque',
+      situacao: 'ATIVO',
+      prontidao: 'Verde',
+      equipe: 'Verde',
+      ordem_antiguidade: 1,
+      email_vinculado: 'sao.roque@gmail.com',
+      ativo: true,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString()
+    });
+
+    // Teste de busca por RE (tanto puro '982635' quanto formatado '982635-1')
+    const milPuro = MilitaryService.getByRE('982635');
+    assert.ok(milPuro);
+    assert.equal(milPuro.re, '982635');
+
+    const milFormatado = MilitaryService.getByRE('982635-1');
+    assert.ok(milFormatado);
+    assert.equal(milFormatado.re, '982635');
+
+    // Login com RE e senha inicial = RE
+    const resLogin = Code.apiLogin({ re: '982635', senha: '982635' });
+    assert.equal(resLogin.success, true);
+    assert.equal(resLogin.data.militar.nome_guerra, 'São Roque');
+  });
 });
 

@@ -99,11 +99,15 @@ test('1. ValidationService - Sanitização, Tipos e DTOs', async (t) => {
     assert.ok(sanitized.includes('&amp;foo=&#x27;bar&#x27;'));
   });
 
-  await t.test('Normalização de RE deve aceitar apenas formato válido', () => {
-    assert.equal(ValidationService.normalizeRE('12345'), '12345');
-    assert.equal(ValidationService.normalizeRE('RE 123.456-7'), '1234567');
-    assert.throws(() => ValidationService.normalizeRE('12'), /deve conter entre 4 e 8 dígitos/i);
-    assert.throws(() => ValidationService.normalizeRE('1234567890'), /deve conter entre 4 e 8 dígitos/i);
+  await t.test('Normalização de RE deve aceitar apenas formato válido (6 dígitos entre 100000 e 999999)', () => {
+    assert.equal(ValidationService.normalizeRE('123456'), '123456');
+    assert.equal(ValidationService.normalizeRE('982635'), '982635');
+    assert.equal(ValidationService.normalizeRE('RE 982.635-1'), '982635');
+    assert.equal(ValidationService.normalizeRE('RE 123.456-7'), '123456');
+    assert.equal(ValidationService.normalizeRE('admin'), 'admin');
+    assert.throws(() => ValidationService.normalizeRE('12'), /deve conter exatamente 6 dígitos/i);
+    assert.throws(() => ValidationService.normalizeRE('099999'), /entre 100000 e 999999/i);
+    assert.throws(() => ValidationService.normalizeRE('12345678'), /deve conter exatamente 6 dígitos/i);
   });
 
   await t.test('Validação de datas no calendário real (incluindo bissextos)', () => {

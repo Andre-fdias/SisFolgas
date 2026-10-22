@@ -106,6 +106,27 @@ Repository.initializeSchema(mockSs);
 const adminEmail = 'admin.cbm@gmail.com';
 SeedData.populateTestData(adminEmail);
 
+// Garante o militar real 982635 na inicialização do dev_server local
+if (!MilitaryService.getByRE('982635')) {
+  Repository.insert(Config.SHEETS.MILITARES, {
+    militar_id: '982635',
+    re: '982635',
+    digito_re: '1',
+    nome_completo: 'Militar Efetivo São Roque',
+    nome_guerra: 'São Roque',
+    graduacao: '1º Sgt PM',
+    unidade: '2º SGB- Eb São Roque',
+    situacao: 'ATIVO',
+    prontidao: 'Verde',
+    equipe: 'Verde',
+    ordem_antiguidade: 1,
+    email_vinculado: 'militar982635@gmail.com',
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString()
+  });
+}
+
 let pTest = PeriodService.getActivePeriod();
 if (!pTest) {
   const adminCtx = { authenticated: true, email: adminEmail, perfil: Config.ROLES.ADMIN, permissions: Config.ROLE_PERMISSIONS.ADMIN };
@@ -146,10 +167,11 @@ const server = http.createServer((req, res) => {
             <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (2º SGB- Eb São Roque)</strong>
             <span>| Alternar Usuário:</span>
             <select id="dev-user-select" style="background: #312e81; color: #fff; border: 1px solid #6366f1; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;">
-              <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (RE 10101 • Prontidão Verde - Antiguidade Geral 1º - É A VEZ)</option>
-              <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (RE 10102 • Prontidão Verde - Antiguidade Geral 2º)</option>
-              <option value="souza.teste@gmail.com">👨‍🚒 1º Ten Souza (RE 10201 • Prontidão Amarela - Antiguidade Geral 8º - É A VEZ)</option>
-              <option value="pereira.teste@gmail.com">👨‍🚒 Cap Pereira (RE 10301 • Prontidão Azul - Antiguidade Geral 15º - É A VEZ)</option>
+              <option value="militar982635@gmail.com">👨‍🚒 1º Sgt São Roque (RE 982635 • Prontidão Verde - É A VEZ)</option>
+              <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (RE 10101 • Prontidão Verde)</option>
+              <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (RE 10102 • Prontidão Verde)</option>
+              <option value="souza.teste@gmail.com">👨‍🚒 1º Ten Souza (RE 10201 • Prontidão Amarela)</option>
+              <option value="pereira.teste@gmail.com">👨‍🚒 Cap Pereira (RE 10301 • Prontidão Azul)</option>
               <option value="admin.cbm@gmail.com">👨‍💼 Administrador (admin)</option>
             </select>
 
@@ -160,6 +182,10 @@ const server = http.createServer((req, res) => {
             <button id="dev-window-toggle" style="background: ${simulatedWindowOpen ? '#065f46' : '#991b1b'}; color: #fff; border: 1px solid ${simulatedWindowOpen ? '#10b981' : '#ef4444'}; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
               ${simulatedWindowOpen ? '📅 Janela: Aberta (01 a 16)' : '🔒 Janela: Bloqueada (17+)'}
             </button>
+
+            <a href="https://script.google.com/macros/s/AKfycbyW_SNl57Kso3XyxeNLlMJsmq64C40WcSVX7IlaFkHRB0siYELxf-mYd9uducfQk899/exec" target="_blank" style="background: #059669; color: #fff; border: 1px solid #10b981; padding: 0.25rem 0.65rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+              🌐 Web App Real (Planilha Google)
+            </a>
           </div>
           <div style="font-size: 0.75rem; color: #c7d2fe;">
             Planilha: <strong>SisFolgas</strong> • Período: <strong>${ValidationService.formatCompetencia('2026-11')} ABERTO</strong>
@@ -279,6 +305,36 @@ const server = http.createServer((req, res) => {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: { message: `Método '${action}' não encontrado.` } }));
           return;
+        }
+
+        // No dev_server local: se for tentativa de login com RE de 6 dígitos que ainda não está no mock, auto-cadastra
+        if (action === 'apiLogin' && payload && payload.re) {
+          const reqRe = String(payload.re).trim();
+          if (reqRe.toLowerCase() !== 'admin') {
+            try {
+              const cleanRe = ValidationService.normalizeRE(reqRe);
+              const exists = MilitaryService.getByRE(cleanRe) || MilitaryService.getById(cleanRe);
+              if (!exists) {
+                Repository.insert(Config.SHEETS.MILITARES, {
+                  militar_id: cleanRe,
+                  re: cleanRe,
+                  digito_re: '1',
+                  nome_completo: `Militar Efetivo (${cleanRe})`,
+                  nome_guerra: `Mil. ${cleanRe}`,
+                  graduacao: '1º Sgt PM',
+                  unidade: '2º SGB- Eb São Roque',
+                  situacao: 'ATIVO',
+                  prontidao: 'Verde',
+                  equipe: 'Verde',
+                  ordem_antiguidade: 1,
+                  email_vinculado: `${cleanRe}@sisfolgas.local`,
+                  ativo: true,
+                  criado_em: new Date().toISOString(),
+                  atualizado_em: new Date().toISOString()
+                });
+              }
+            } catch (e) {}
+          }
         }
 
         AuthService.setEmailOverride(currentSessionEmail);
