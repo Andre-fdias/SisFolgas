@@ -289,8 +289,7 @@ test('Verificação das Regras Específicas: RE/Senha Padrão, CRUD de Senha e C
     // Valida que o endpoint inicial retorna o link da planilha base para o admin
     const stateRes = Code.apiGetInitialState({ sessionRe: '108154' });
     assert.equal(stateRes.success, true);
-    assert.ok(stateRes.data.spreadsheetUrl !== undefined && stateRes.data.spreadsheetUrl.length > 0);
-    assert.match(stateRes.data.spreadsheetUrl, /docs\.google\.com\/spreadsheets/);
+    assert.match(stateRes.data.spreadsheetUrl, /docs\.google\.com\/spreadsheets\/d\/1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU/);
   });
 });
 

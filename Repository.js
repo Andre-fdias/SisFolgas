@@ -15,9 +15,9 @@ const Repository = (function() {
       const active = SpreadsheetApp.getActiveSpreadsheet();
       if (active) return active;
       
-      // Se não for script vinculado, busca pelo ID salvo nas propriedades do script
+      // Se não for script vinculado, busca pelo ID salvo nas propriedades do script ou fallback oficial
       const props = PropertiesService.getScriptProperties();
-      const sheetId = props.getProperty('SPREADSHEET_ID');
+      const sheetId = props.getProperty('SPREADSHEET_ID') || '1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU';
       if (sheetId) {
         return SpreadsheetApp.openById(sheetId);
       }
@@ -64,11 +64,11 @@ const Repository = (function() {
       try {
         if (typeof PropertiesService !== 'undefined') {
           const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-          if (id) return 'https://docs.google.com/spreadsheets/d/' + id + '/edit';
+          if (id) return 'https://docs.google.com/spreadsheets/d/' + id + '/edit?gid=0#gid=0';
         }
       } catch (e) {}
 
-      return 'https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit';
+      return 'https://docs.google.com/spreadsheets/d/1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU/edit?gid=0#gid=0';
     },
 
     /**

@@ -89,7 +89,7 @@ function createMockSpreadsheet() {
   }
 
   return {
-    getUrl: () => 'https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit',
+    getUrl: () => 'https://docs.google.com/spreadsheets/d/1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU/edit?gid=0#gid=0',
     getSheetByName: (name) => sheets[name] || null,
     insertSheet: (name) => {
       sheets[name] = createMockSheet(name);
