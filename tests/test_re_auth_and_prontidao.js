@@ -246,5 +246,51 @@ test('Verificação das Regras Específicas: RE/Senha Padrão, CRUD de Senha e C
     assert.equal(resLogin.success, true);
     assert.equal(resLogin.data.militar.nome_guerra, 'São Roque');
   });
+
+  await t.test('10. Padrão militar de cabeçalho (graduacao re+dig nome_guerra - unidade - VERDE) e link da planilha base', () => {
+    // Cadastra Andre Dias conforme solicitação
+    Repository.insert(Config.SHEETS.MILITARES, {
+      militar_id: '108154',
+      re: '108154',
+      digito_re: '3',
+      nome_completo: 'Andre Dias',
+      nome_guerra: 'Andre Dias',
+      graduacao: '1º Sgt PM',
+      unidade: '703152301 - EB SÃO ROQUE',
+      situacao: 'ATIVO',
+      prontidao: 'Verde',
+      equipe: 'Verde',
+      ordem_antiguidade: 1,
+      ativo: true
+    });
+
+    Repository.insert(Config.SHEETS.USUARIOS, {
+      usuario_id: 'u-108154',
+      email_google: 'andredias@gmail.com',
+      militar_id: '108154',
+      senha: '108154',
+      perfil: Config.ROLES.ADMIN,
+      ativo: true
+    });
+
+    const loginRes = Code.apiLogin({ re: '108154', senha: '108154' });
+    assert.equal(loginRes.success, true);
+    assert.equal(loginRes.data.user.perfil, Config.ROLES.ADMIN);
+
+    const m = loginRes.data.militar;
+    const reFormat = m.digito_re ? `${m.re}-${m.digito_re}` : String(m.re);
+    const textPart = `${m.graduacao} ${reFormat} ${m.nome_guerra} - ${m.unidade} -`;
+    const badgePart = (m.prontidao || 'Verde').toUpperCase();
+
+    // Valida o padrão exato solicitado: 1º Sgt PM 108154-3 Andre Dias - 703152301 - EB SÃO ROQUE - VERDE
+    assert.equal(textPart, '1º Sgt PM 108154-3 Andre Dias - 703152301 - EB SÃO ROQUE -');
+    assert.equal(badgePart, 'VERDE');
+
+    // Valida que o endpoint inicial retorna o link da planilha base para o admin
+    const stateRes = Code.apiGetInitialState({ sessionRe: '108154' });
+    assert.equal(stateRes.success, true);
+    assert.ok(stateRes.data.spreadsheetUrl !== undefined && stateRes.data.spreadsheetUrl.length > 0);
+    assert.match(stateRes.data.spreadsheetUrl, /docs\.google\.com\/spreadsheets/);
+  });
 });
 

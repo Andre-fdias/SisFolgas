@@ -51,6 +51,27 @@ const Repository = (function() {
 
   return {
     /**
+     * Retorna a URL da Planilha Google de banco de dados vinculada
+     */
+    getSpreadsheetUrl: function() {
+      try {
+        const ss = _spreadsheetOverride || getSpreadsheet();
+        if (ss && typeof ss.getUrl === 'function') {
+          return ss.getUrl();
+        }
+      } catch (e) {}
+
+      try {
+        if (typeof PropertiesService !== 'undefined') {
+          const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+          if (id) return 'https://docs.google.com/spreadsheets/d/' + id + '/edit';
+        }
+      } catch (e) {}
+
+      return 'https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit';
+    },
+
+    /**
      * Permite injeção de mock de Spreadsheet para suíte de testes automatizados
      */
     setSpreadsheetOverride: function(mock) {

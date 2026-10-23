@@ -89,6 +89,7 @@ function createMockSpreadsheet() {
   }
 
   return {
+    getUrl: () => 'https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit',
     getSheetByName: (name) => sheets[name] || null,
     insertSheet: (name) => {
       sheets[name] = createMockSheet(name);
@@ -102,9 +103,47 @@ const mockSs = createMockSpreadsheet();
 Repository.setSpreadsheetOverride(mockSs);
 Repository.initializeSchema(mockSs);
 
-// Carrega os 21 militares fictícios, admin e período padrão NOV26
+// Carrega os militares fictícios, admin e período padrão NOV26
 const adminEmail = 'admin.cbm@gmail.com';
 SeedData.populateTestData(adminEmail);
+
+// Garante o militar real 108154 (1º Sgt PM Andre Dias - ADMIN)
+if (!MilitaryService.getByRE('108154')) {
+  Repository.insert(Config.SHEETS.MILITARES, {
+    militar_id: '108154',
+    re: '108154',
+    digito_re: '3',
+    nome_completo: 'Andre Dias',
+    nome_guerra: 'Andre Dias',
+    graduacao: '1º Sgt PM',
+    unidade: '703152301 - EB SÃO ROQUE',
+    situacao: 'ATIVO',
+    prontidao: 'Verde',
+    equipe: 'Verde',
+    ordem_antiguidade: 1,
+    email_vinculado: 'andredias@gmail.com',
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString()
+  });
+}
+const userAndre = Repository.findOne(Config.SHEETS.USUARIOS, 'militar_id', '108154');
+if (!userAndre) {
+  Repository.insert(Config.SHEETS.USUARIOS, {
+    usuario_id: ValidationService.generateUuid(),
+    email_google: 'andredias@gmail.com',
+    militar_id: '108154',
+    senha: '108154',
+    perfil: Config.ROLES.ADMIN,
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString()
+  });
+} else if (userAndre.perfil !== Config.ROLES.ADMIN) {
+  Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', userAndre.usuario_id, {
+    perfil: Config.ROLES.ADMIN
+  });
+}
 
 // Garante o militar real 982635 na inicialização do dev_server local
 if (!MilitaryService.getByRE('982635')) {
@@ -119,7 +158,7 @@ if (!MilitaryService.getByRE('982635')) {
     situacao: 'ATIVO',
     prontidao: 'Verde',
     equipe: 'Verde',
-    ordem_antiguidade: 1,
+    ordem_antiguidade: 2,
     email_vinculado: 'militar982635@gmail.com',
     ativo: true,
     criado_em: new Date().toISOString(),
@@ -167,6 +206,7 @@ const server = http.createServer((req, res) => {
             <strong style="color: #a5b4fc;">⚡ LIVE PREVIEW (2º SGB- Eb São Roque)</strong>
             <span>| Alternar Usuário:</span>
             <select id="dev-user-select" style="background: #312e81; color: #fff; border: 1px solid #6366f1; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer;">
+              <option value="andredias@gmail.com">👨‍🚒 1º Sgt PM Andre Dias (RE 108154-3 • 703152301 - EB SÃO ROQUE • VERDE - ADMIN)</option>
               <option value="militar982635@gmail.com">👨‍🚒 1º Sgt São Roque (RE 982635 • Prontidão Verde - É A VEZ)</option>
               <option value="csilva.teste@gmail.com">👨‍🚒 1º Sgt C. Silva (RE 10101 • Prontidão Verde)</option>
               <option value="oliveira.teste@gmail.com">👨‍🚒 2º Sgt Oliveira (RE 10102 • Prontidão Verde)</option>

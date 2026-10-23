@@ -184,6 +184,7 @@
         state.activePeriod = data.activePeriod || null;
         state.queues = data.queues || {};
         state.choiceWindow = data.choiceWindow || { isOpen: true, currentDay: (new Date()).getDate() };
+        state.spreadsheetUrl = data.spreadsheetUrl || '';
 
         if (data.unidades && data.unidades.length > 0) {
           updateUnidadeDropdowns(data.unidades);
@@ -258,6 +259,7 @@
         if (badgeElem) {
           badgeElem.textContent = 'VISITANTE';
           badgeElem.className = 'user-role-tag role-visitante';
+          badgeElem.style.display = 'inline-block';
         }
         if (btnLogout) btnLogout.style.display = 'none';
         if (btnAltSenha) btnAltSenha.style.display = 'none';
@@ -270,19 +272,59 @@
 
       if (user.militar) {
         const m = user.militar;
-        const pTxt = m.prontidao || m.equipe || '';
-        const uTxt = m.unidade ? ` • ${m.unidade}` : '';
-        nameElem.textContent = `${m.graduacao} ${m.nome_guerra} (RE: ${m.re || m.militar_id})${uTxt} • Prontidão ${pTxt}`;
-      } else {
-        nameElem.textContent = user.email || 'Administrador';
-      }
+        const grad = m.graduacao ? `${String(m.graduacao).trim()} ` : '';
+        
+        let reStr = String(m.re || m.militar_id || '').trim();
+        let digitoStr = (m.digito_re !== undefined && m.digito_re !== null && String(m.digito_re).trim() !== '') ? String(m.digito_re).trim() : '';
+        
+        // Se reStr já contiver hífen (ex: 108154-3), não duplica dígito
+        let reFormat = reStr;
+        if (!reFormat.includes('-') && digitoStr) {
+          reFormat = `${reFormat}-${digitoStr}`;
+        }
+        
+        const nomeGuerra = String(m.nome_guerra || '').trim();
+        const unidade = String(m.unidade || '703152301 - EB SÃO ROQUE').trim();
+        
+        // PADRÃO EXATO SOLICITADO:
+        // graduacao  re+dig nome de guerra - unidade  e prontidao com badge com a cor da equipe
+        // Exemplo: 1º Sgt PM 108154-3 Andre Dias - 703152301 - EB SÃO ROQUE - VERDE
+        // RETIRAR O BADGE "MILITAR"
+        const prefix = `${grad}${reFormat} ${nomeGuerra}`.trim();
+        if (nameElem) {
+          nameElem.textContent = `${prefix} - ${unidade} -`;
+        }
 
-      if (user.isOwner) {
-        badgeElem.textContent = 'ADMIN (DONO DA PLANILHA)';
-        badgeElem.className = 'user-role-tag role-admin';
-      } else if (user.perfil) {
-        badgeElem.textContent = user.perfil;
-        badgeElem.className = `user-role-tag role-${user.perfil.toLowerCase()}`;
+        const pRaw = String(m.prontidao || m.equipe || 'Verde').replace(/prontid[aã]o/gi, '').trim();
+        const pUpper = pRaw.toUpperCase() || 'VERDE';
+        const pLower = pRaw.toLowerCase();
+
+        let badgeClass = 'user-role-tag badge-prontidao-verde';
+        if (pLower.includes('amarel')) {
+          badgeClass = 'user-role-tag badge-prontidao-amarela';
+        } else if (pLower.includes('azul')) {
+          badgeClass = 'user-role-tag badge-prontidao-azul';
+        }
+
+        if (badgeElem) {
+          badgeElem.textContent = pUpper;
+          badgeElem.className = badgeClass;
+          badgeElem.style.display = 'inline-block';
+        }
+      } else {
+        if (nameElem) {
+          nameElem.textContent = user.email || 'Administrador';
+        }
+        if (badgeElem) {
+          if (user.isOwner) {
+            badgeElem.textContent = 'ADMIN (DONO DA PLANILHA)';
+            badgeElem.className = 'user-role-tag role-admin';
+          } else {
+            badgeElem.textContent = (user.perfil || 'ADMIN').toUpperCase();
+            badgeElem.className = `user-role-tag role-${String(user.perfil || 'admin').toLowerCase()}`;
+          }
+          badgeElem.style.display = 'inline-block';
+        }
       }
 
       if (btnLogout) btnLogout.style.display = 'inline-flex';
@@ -432,20 +474,30 @@
     }
 
     function renderRolePermissions() {
-      const perfil = state.user.perfil;
+      const user = state.user || {};
+      const perfil = user.perfil || '';
+      const isOwner = Boolean(user.isOwner);
       const tabGestor = document.getElementById('btn-tab-gestor');
       const tabAdmin = document.getElementById('btn-tab-admin');
 
-      if (perfil === 'ADMIN') {
-        tabGestor.style.display = 'block';
-        tabAdmin.style.display = 'block';
+      const isAdmin = (perfil === 'ADMIN' || isOwner);
+      if (isAdmin) {
+        if (tabGestor) tabGestor.style.display = 'block';
+        if (tabAdmin) tabAdmin.style.display = 'block';
       } else if (perfil === 'GESTOR') {
-        tabGestor.style.display = 'block';
-        tabAdmin.style.display = 'none';
+        if (tabGestor) tabGestor.style.display = 'block';
+        if (tabAdmin) tabAdmin.style.display = 'none';
       } else {
-        tabGestor.style.display = 'none';
-        tabAdmin.style.display = 'none';
+        if (tabGestor) tabGestor.style.display = 'none';
+        if (tabAdmin) tabAdmin.style.display = 'none';
       }
+
+      // Atualiza link de acesso direto à Planilha Base nos botões da área administrativa
+      const sheetUrl = state.spreadsheetUrl || 'https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit';
+      const btnOpenSheet = document.getElementById('btn-admin-open-spreadsheet');
+      if (btnOpenSheet) btnOpenSheet.href = sheetUrl;
+      const linkBannerSheet = document.getElementById('link-admin-open-sheet-banner');
+      if (linkBannerSheet) linkBannerSheet.href = sheetUrl;
     }
 
     function renderKpis() {

@@ -261,6 +261,15 @@ function apiGetInitialState(payload) {
       return ValidationService.sanitizeMilitaryDto(m, isSelf || isAdmin);
     });
 
+    let spreadsheetUrl = '';
+    try {
+      if (typeof Repository !== 'undefined' && Repository.getSpreadsheetUrl) {
+        spreadsheetUrl = Repository.getSpreadsheetUrl();
+      }
+    } catch (e) {
+      console.warn('Não foi possível obter spreadsheetUrl:', e);
+    }
+
     if (!context.authenticated) {
       return {
         authenticated: false,
@@ -271,7 +280,8 @@ function apiGetInitialState(payload) {
         prontidoes: prontidoes,
         activePeriod: activePeriod,
         queues: queues,
-        teams: prontidoes
+        teams: prontidoes,
+        spreadsheetUrl: spreadsheetUrl
       };
     }
 
@@ -291,6 +301,7 @@ function apiGetInitialState(payload) {
       activePeriod: activePeriod,
       queues: queues,
       teams: prontidoes,
+      spreadsheetUrl: spreadsheetUrl,
       choiceWindow: {
         isOpen: ChoiceService.isWithinChoiceWindow(),
         currentDay: (new Date()).getDate(),

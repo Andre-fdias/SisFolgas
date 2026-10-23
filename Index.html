@@ -577,11 +577,34 @@
 
     <!-- Tab 4: Administração & Auditoria (Admin Only) -->
     <section class="tab-pane" id="tab-admin">
+      <!-- Banner de Acesso Direto à Planilha Base Google Sheets -->
+      <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(16, 185, 129, 0.45); border-radius: var(--radius-lg); padding: 1.25rem 1.75rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);">
+        <div style="display: flex; align-items: center; gap: 1.1rem;">
+          <div style="font-size: 2.2rem; background: rgba(16, 185, 129, 0.2); width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.4); flex-shrink: 0;">
+            📊
+          </div>
+          <div>
+            <h3 style="color: #34d399; font-size: 1.15rem; margin-bottom: 0.25rem; font-family: var(--font-heading); font-weight: 700;">
+              Planilha Base de Dados do SisFolgas
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+              Acesse diretamente a planilha Google oficial vinculada ao sistema (MILITARES, PERIODOS, ESCOLHAS, AUDITORIA, etc.).
+            </p>
+          </div>
+        </div>
+        <a id="link-admin-open-sheet-banner" href="https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #10b981); border: 1px solid #34d399; color: #fff; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1.5rem; font-size: 0.95rem; border-radius: var(--radius-md); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+          <span>📑 Abrir Planilha Base no Google Sheets ↗</span>
+        </a>
+      </div>
+
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
         
         <div class="kpi-card">
           <div class="kpi-label">Ações Administrativas</div>
           <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+            <a id="btn-admin-open-spreadsheet" href="https://docs.google.com/spreadsheets/d/1hydYQOk_C8ITjLs7E3lbnN5l7RCWMJSPewMU8bSuKIFNSmmuc8WqVObD/edit" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.5); color: #34d399; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" title="Abrir Planilha Google de Gestão de Dados">
+              📊 Acessar Planilha Base
+            </a>
             <button class="btn btn-secondary" id="btn-admin-diagnostics">Executar Diagnóstico do Banco</button>
             <button class="btn btn-secondary" id="btn-admin-backup">Gerar Snapshot de Backup</button>
             <button class="btn btn-secondary" id="btn-admin-new-period">Abrir / Pausar Período</button>
