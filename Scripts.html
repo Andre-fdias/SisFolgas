@@ -23,6 +23,58 @@
     };
 
     /* ==========================================================================
+       CONTROLE DE SESSÃO VOLÁTIL (sessionStorage) E INATIVIDADE (10 MINUTOS)
+       ========================================================================== */
+    const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos (600.000 ms)
+    const WARNING_BEFORE_TIMEOUT_MS = 60 * 1000; // Aviso prévio nos últimos 60 segundos (ao 9º minuto)
+    let idleTimer = null;
+    let warningTimer = null;
+    let warningToastShown = false;
+
+    function resetIdleTimer() {
+      if (!state.authenticated) return;
+
+      if (idleTimer) clearTimeout(idleTimer);
+      if (warningTimer) clearTimeout(warningTimer);
+
+      sessionStorage.setItem('sisfolgas_last_activity', String(Date.now()));
+
+      // Aviso sutil aos 9 minutos de inatividade
+      warningTimer = setTimeout(() => {
+        if (state.authenticated && !warningToastShown) {
+          warningToastShown = true;
+          showToast('⚠️ Sua sessão irá expirar em 60 segundos por inatividade!', 'error');
+        }
+      }, SESSION_TIMEOUT_MS - WARNING_BEFORE_TIMEOUT_MS);
+
+      // Logout forçado ao atingir 10 minutos sem atividade
+      idleTimer = setTimeout(() => {
+        encerrarSessaoPorInatividade();
+      }, SESSION_TIMEOUT_MS);
+    }
+
+    function encerrarSessaoPorInatividade() {
+      fazerLogout('Sessão encerrada automaticamente após 10 minutos de inatividade para a segurança dos seus dados.');
+    }
+
+    function setupActivityListeners() {
+      const activityEvents = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'click'];
+      let throttleTimeout = null;
+
+      activityEvents.forEach(evt => {
+        window.addEventListener(evt, () => {
+          if (!throttleTimeout) {
+            throttleTimeout = setTimeout(() => {
+              throttleTimeout = null;
+              warningToastShown = false;
+              resetIdleTimer();
+            }, 1000); // Throttle de 1 segundo para eficiência
+          }
+        }, { passive: true });
+      });
+    }
+
+    /* ==========================================================================
        INICIALIZAÇÃO E UTILITÁRIOS
        ========================================================================== */
 
@@ -30,21 +82,45 @@
       setupTabNavigation();
       setupEventListeners();
       setupAdminForms();
+      setupActivityListeners();
 
-      const savedRe = localStorage.getItem('sisfolgas_session_re');
+      // Limpeza de segurança: remove do localStorage qualquer resíduo legado em disco
+      try {
+        localStorage.removeItem('sisfolgas_session_re');
+      } catch (e) {}
+
+      const savedRe = sessionStorage.getItem('sisfolgas_session_re');
+      const lastActivity = Number(sessionStorage.getItem('sisfolgas_last_activity') || '0');
+      const now = Date.now();
+      const isExpired = lastActivity && (now - lastActivity > SESSION_TIMEOUT_MS);
+
       const loginScreen = document.getElementById('login-screen');
       const appContainer = document.getElementById('app-container');
 
-      if (!savedRe) {
+      if (!savedRe || isExpired) {
+        sessionStorage.removeItem('sisfolgas_session_re');
+        sessionStorage.removeItem('sisfolgas_last_activity');
+        sessionStorage.removeItem('sisfolgas_session_token');
+
         // Sem sessão: exibe Tela de Login dedicada e oculta o app
         if (loginScreen) loginScreen.style.display = 'flex';
         if (appContainer) appContainer.style.display = 'none';
+
+        if (isExpired) {
+          const errElem = document.getElementById('login-screen-error');
+          if (errElem) {
+            errElem.textContent = 'Sessão anterior expirada por inatividade (10 minutos). Identifique-se com seu RE.';
+            errElem.style.display = 'flex';
+          }
+        }
+
         const reInput = document.getElementById('login-screen-re');
         if (reInput) setTimeout(() => reInput.focus(), 150);
       } else {
-        // Sessão existente: oculta a tela de login, exibe o app e carrega dados
+        // Sessão existente no sessionStorage: oculta a tela de login, exibe o app e carrega dados
         if (loginScreen) loginScreen.style.display = 'none';
         if (appContainer) appContainer.style.display = 'block';
+        resetIdleTimer();
         loadInitialState();
       }
     }
@@ -109,7 +185,27 @@
           return;
         }
 
+        resetIdleTimer(); // Qualquer chamada de rede conta como atividade do militar
+
         showLoading(loadingMsg);
+
+        // Injeção automática da credencial de sessão do militar no payload
+        let finalPayload = payload;
+        const currentSessionRe = (state.user && state.user.sessionRe) 
+          || (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id))
+          || sessionStorage.getItem('sisfolgas_session_re');
+        const currentToken = sessionStorage.getItem('sisfolgas_session_token');
+
+        if (finalPayload && typeof finalPayload === 'object' && !Array.isArray(finalPayload)) {
+          if (!finalPayload.sessionRe && currentSessionRe) {
+            finalPayload.sessionRe = currentSessionRe;
+          }
+          if (!finalPayload.sessionToken && currentToken) {
+            finalPayload.sessionToken = currentToken;
+          }
+        } else if (finalPayload === null && currentSessionRe) {
+          finalPayload = { sessionRe: currentSessionRe, sessionToken: currentToken };
+        }
 
         const runner = google.script.run
           .withSuccessHandler((response) => {
@@ -131,8 +227,8 @@
             reject(err);
           });
 
-        if (payload !== null && payload !== undefined) {
-          runner[methodName](payload);
+        if (finalPayload !== null && finalPayload !== undefined) {
+          runner[methodName](finalPayload);
         } else {
           runner[methodName]();
         }
@@ -166,9 +262,11 @@
     async function loadInitialState() {
       let data = null;
       try {
-        const savedRe = localStorage.getItem('sisfolgas_session_re') || null;
+        const savedRe = sessionStorage.getItem('sisfolgas_session_re') || null;
+        const savedToken = sessionStorage.getItem('sisfolgas_session_token') || null;
         const payload = {
           sessionRe: savedRe,
+          sessionToken: savedToken,
           unidade: state.selectedUnidade !== 'TODAS' ? state.selectedUnidade : null,
           unidadeFilter: state.selectedUnidade !== 'TODAS' ? state.selectedUnidade : null
         };
@@ -196,7 +294,11 @@
         if (!data.authenticated) {
           state.authenticated = false;
           state.user = null;
-          localStorage.removeItem('sisfolgas_session_re');
+          sessionStorage.removeItem('sisfolgas_session_re');
+          sessionStorage.removeItem('sisfolgas_last_activity');
+          sessionStorage.removeItem('sisfolgas_session_token');
+          try { localStorage.removeItem('sisfolgas_session_re'); } catch(e) {}
+
           const loginScreen = document.getElementById('login-screen');
           const appContainer = document.getElementById('app-container');
           if (appContainer) appContainer.style.display = 'none';
@@ -212,6 +314,7 @@
         } else {
           state.authenticated = true;
           state.user = data.user;
+          resetIdleTimer();
           const loginScreen = document.getElementById('login-screen');
           const appContainer = document.getElementById('app-container');
           if (loginScreen) loginScreen.style.display = 'none';
@@ -1622,7 +1725,7 @@
       const errElem = document.getElementById('login-error-msg');
       if (errElem) errElem.style.display = 'none';
       if (reInput) {
-        const currentRe = (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || localStorage.getItem('sisfolgas_session_re') || '';
+        const currentRe = (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || sessionStorage.getItem('sisfolgas_session_re') || '';
         reInput.value = currentRe;
       }
       if (senhaInput) senhaInput.value = '';
@@ -1647,7 +1750,7 @@
       const errElem = document.getElementById('alt-senha-error-msg');
       if (errElem) errElem.style.display = 'none';
 
-      const currentRe = targetRe || (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || localStorage.getItem('sisfolgas_session_re') || '';
+      const currentRe = targetRe || (state.user && state.user.militar && (state.user.militar.re || state.user.militar.militar_id)) || sessionStorage.getItem('sisfolgas_session_re') || '';
       if (reInput) reInput.value = currentRe;
       if (atualInput) atualInput.value = '';
       if (novaInput) novaInput.value = '';
@@ -1703,11 +1806,17 @@
         const resolvedRe = (res && res.militar && (res.militar.re || res.militar.militar_id)) 
           ? (res.militar.re || res.militar.militar_id) 
           : re;
-        localStorage.setItem('sisfolgas_session_re', resolvedRe);
+        sessionStorage.setItem('sisfolgas_session_re', resolvedRe);
+        sessionStorage.setItem('sisfolgas_last_activity', String(Date.now()));
+        if (res && res.sessionToken) {
+          sessionStorage.setItem('sisfolgas_session_token', res.sessionToken);
+        }
+        try { localStorage.removeItem('sisfolgas_session_re'); } catch(e) {}
 
         if (res && res.user) {
           state.authenticated = true;
           state.user = res.user;
+          resetIdleTimer();
         }
 
         const loginScreen = document.getElementById('login-screen');
@@ -1780,8 +1889,13 @@
       }
     }
 
-    function fazerLogout() {
-      localStorage.removeItem('sisfolgas_session_re');
+    function fazerLogout(motivo) {
+      if (idleTimer) clearTimeout(idleTimer);
+      if (warningTimer) clearTimeout(warningTimer);
+      sessionStorage.removeItem('sisfolgas_session_re');
+      sessionStorage.removeItem('sisfolgas_last_activity');
+      sessionStorage.removeItem('sisfolgas_session_token');
+      try { localStorage.removeItem('sisfolgas_session_re'); } catch(e) {}
       state.authenticated = false;
       state.user = null;
 
@@ -1794,12 +1908,23 @@
         const senhaInput = document.getElementById('login-screen-senha') || document.getElementById('login-senha');
         if (senhaInput) senhaInput.value = '';
         const errElem = document.getElementById('login-screen-error') || document.getElementById('login-error-msg');
-        if (errElem) errElem.style.display = 'none';
+        if (errElem) {
+          if (motivo) {
+            errElem.textContent = motivo;
+            errElem.style.display = 'flex';
+          } else {
+            errElem.style.display = 'none';
+          }
+        }
         const reInput = document.getElementById('login-screen-re') || document.getElementById('login-re');
         if (reInput) setTimeout(() => reInput.focus(), 150);
       }
 
-      showToast('Você encerrou sua sessão com segurança.', 'info');
+      if (motivo) {
+        showToast(motivo, 'error');
+      } else {
+        showToast('Você encerrou sua sessão com segurança.', 'info');
+      }
     }
 
     function entrarComMilitarRe(re) {

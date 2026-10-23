@@ -23,6 +23,61 @@ const AuthService = (function() {
     },
 
     /**
+     * Gera hash SHA-256 seguro para armazenamento de senhas
+     */
+    hashPassword: function(rawPassword, salt) {
+      if (!rawPassword) return '';
+      const s = salt || 'SISFOLGAS_SRO_2026';
+      if (typeof Utilities !== 'undefined' && Utilities.computeDigest && Utilities.DigestAlgorithm) {
+        const rawBytes = Utilities.computeDigest(
+          Utilities.DigestAlgorithm.SHA_256,
+          String(rawPassword) + s,
+          Utilities.Charset.UTF_8
+        );
+        return rawBytes.map(function(b) {
+          return ('0' + (b & 0xFF).toString(16)).slice(-2);
+        }).join('');
+      }
+      if (typeof require !== 'undefined') {
+        try {
+          const crypto = require('crypto');
+          return crypto.createHash('sha256').update(String(rawPassword) + s).digest('hex');
+        } catch (e) {}
+      }
+      return String(rawPassword);
+    },
+
+    /**
+     * Verifica senha suportando tanto hashes SHA-256 quanto texto legado
+     */
+    verifyPassword: function(inputPassword, storedPassword, salt) {
+      if (!inputPassword || !storedPassword) return false;
+      const inputStr = String(inputPassword).trim();
+      const storedStr = String(storedPassword).trim();
+
+      if (storedStr.length === 64 && /^[0-9a-fA-F]{64}$/.test(storedStr)) {
+        const inputHash = this.hashPassword(inputStr, salt);
+        return inputHash.toLowerCase() === storedStr.toLowerCase();
+      }
+
+      return inputStr === storedStr;
+    },
+
+    /**
+     * Gera token efêmero de sessão para o militar
+     */
+    generateSessionToken: function(re) {
+      let clean = '';
+      try {
+        clean = ValidationService.normalizeRE(re);
+      } catch (e) {
+        clean = String(re).trim();
+      }
+      const raw = `${clean}:${Date.now()}:${ValidationService.generateUuid()}`;
+      return this.hashPassword(raw, 'SISFOLGAS_TOKEN_SALT');
+    },
+
+    /**
      * Obtém o e-mail autenticado com segurança da sessão Google Apps Script
      */
     getAuthenticatedEmail: function() {
@@ -187,12 +242,14 @@ const AuthService = (function() {
         }
       }
 
-      const expectedSenha = (user && user.senha) ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
+      const storedSenha = (user && user.senha) ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
       const inputSenha = String(senha).trim();
 
-      if (inputSenha !== expectedSenha) {
+      if (!this.verifyPassword(inputSenha, storedSenha)) {
         throw new Error(isAdminLogin ? 'Senha incorreta para o Administrador.' : 'Senha incorreta. A senha padrão inicial é o seu próprio RE.');
       }
+
+      const sessionToken = this.generateSessionToken(cleanRe);
 
       AuditService.log({
         userEmail: user ? user.email_google : (isAdminLogin ? 'admin@sisfolgas.cbm' : `${cleanRe}@sisfolgas.local`),
@@ -208,6 +265,7 @@ const AuthService = (function() {
         success: true,
         authenticated: true,
         sessionRe: cleanRe,
+        sessionToken: sessionToken,
         user: {
           email: user ? user.email_google : (isAdminLogin ? 'admin@sisfolgas.cbm' : `${cleanRe}@sisfolgas.local`),
           perfil: user ? user.perfil : (isAdminLogin ? Config.ROLES.ADMIN : Config.ROLES.MILITAR),
@@ -221,7 +279,7 @@ const AuthService = (function() {
     },
 
     /**
-     * Alteração de Senha do Militar (CRUD de Senha)
+     * Alteração de Senha do Militar (CRUD de Senha com Hash SHA-256)
      */
     changePassword: function(re, senhaAtual, novaSenha, confirmaSenha) {
       if (!re) throw new Error('RE não identificado.');
@@ -263,13 +321,15 @@ const AuthService = (function() {
         }
       }
 
-      const expectedSenha = user.senha ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
-      if (String(senhaAtual).trim() !== expectedSenha) {
+      const storedSenha = user.senha ? String(user.senha) : (isAdminLogin ? 'admin' : cleanRe);
+      if (!this.verifyPassword(senhaAtual, storedSenha)) {
         throw new Error('A senha atual informada está incorreta.');
       }
 
+      const hashedNovaSenha = this.hashPassword(String(novaSenha).trim());
+
       Repository.updateById(Config.SHEETS.USUARIOS, 'usuario_id', user.usuario_id, {
-        senha: String(novaSenha).trim(),
+        senha: hashedNovaSenha,
         atualizado_em: new Date().toISOString()
       });
 

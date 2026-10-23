@@ -101,11 +101,18 @@ function setupPopularApenasMilitares() {
 /**
  * Wrapper de execução segura para todas as chamadas remotas (RPC Envelope)
  */
-function runSecureRpc(actionName, fn, optionalSessionRe) {
+function runSecureRpc(actionName, fn, sessionContextOrPayload) {
   const opId = ValidationService.generateUuid();
   try {
-    const context = optionalSessionRe 
-      ? AuthService.getUserContextByRe(optionalSessionRe) 
+    let resolvedRe = null;
+    if (typeof sessionContextOrPayload === 'string') {
+      resolvedRe = sessionContextOrPayload;
+    } else if (sessionContextOrPayload && typeof sessionContextOrPayload === 'object') {
+      resolvedRe = sessionContextOrPayload.sessionRe || null;
+    }
+
+    const context = resolvedRe 
+      ? AuthService.getUserContextByRe(resolvedRe) 
       : AuthService.getUserContext();
     const result = fn(context, opId);
     return {
@@ -367,7 +374,7 @@ function apiLinkGoogleToMilitary(payload) {
       success: true,
       mensagem: `Conta Google ${emailToLink} vinculada com sucesso ao RE ${re} (${militar.nome_guerra})!`
     };
-  });
+  }, payload);
 }
 
 /**
@@ -478,17 +485,17 @@ function apiPreCadastroMilitar(payload) {
       militar: ValidationService.sanitizeMilitaryDto(militar, true),
       mensagem: `Acesso ativado com sucesso! Bem-vindo(a), ${militar.graduacao} ${militar.nome_guerra}.`
     };
-  });
+  }, payload);
 }
 
-function apiGetAllMilitares() {
+function apiGetAllMilitares(payload) {
   return runSecureRpc('getAllMilitares', function(context) {
     const isAdmin = context.perfil === Config.ROLES.ADMIN;
     return MilitaryService.getAllActive().map(m => {
       const isSelf = context.militar && (String(context.militar.re) === String(m.re));
       return ValidationService.sanitizeMilitaryDto(m, isSelf || isAdmin);
     });
-  });
+  }, payload);
 }
 
 /**
@@ -504,7 +511,7 @@ function apiGetTeamQueue(arg1, arg2) {
   return runSecureRpc('getTeamQueue', function(context, opId) {
     AuthService.requireAuthentication(context);
     return ChoiceService.getTeamQueueStatus(periodoId, equipe);
-  });
+  }, arg1);
 }
 
 /**
@@ -520,7 +527,7 @@ function apiMakeChoice(payload) {
       payload.idempotency_key,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -534,7 +541,7 @@ function apiCancelChoice(payload) {
       payload.justificativa,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -549,7 +556,7 @@ function apiPassTurn(payload) {
       payload.justificativa,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -558,7 +565,7 @@ function apiPassTurn(payload) {
 function apiAdminSaveMilitary(payload) {
   return runSecureRpc('saveMilitary', function(context, opId) {
     return MilitaryService.saveMilitary(context, payload, opId);
-  });
+  }, payload);
 }
 
 /**
@@ -567,50 +574,51 @@ function apiAdminSaveMilitary(payload) {
 function apiAdminCreatePeriod(payload) {
   return runSecureRpc('createPeriod', function(context, opId) {
     return PeriodService.createPeriod(context, payload, opId);
-  });
+  }, payload);
 }
 
 function apiAdminChangePeriodStatus(payload) {
   return runSecureRpc('changePeriodStatus', function(context, opId) {
     return PeriodService.changeStatus(context, payload.periodo_id, payload.status, payload.justificativa, opId);
-  });
+  }, payload);
 }
 
 /**
  * Operações do Administrador - Relatório Operacional
  */
-function apiAdminGetOperationalReport(periodoId) {
+function apiAdminGetOperationalReport(periodoId, sessionContext) {
   return runSecureRpc('getOperationalReport', function(context, opId) {
-    return AdminService.getOperationalReport(context, periodoId, opId);
-  });
+    return AdminService.getOperationalReport(context, (typeof periodoId === 'object' && periodoId) ? periodoId.periodo_id : periodoId, opId);
+  }, (typeof periodoId === 'object' && periodoId) ? periodoId : sessionContext);
 }
 
 /**
  * Operações do Administrador - Trilha de Auditoria
  */
-function apiAdminGetAuditLogs(limit) {
+function apiAdminGetAuditLogs(limit, sessionRe) {
   return runSecureRpc('getAuditLogs', function(context, opId) {
-    return AdminService.getAuditLogs(context, limit || 50, opId);
-  });
+    const lim = (typeof limit === 'object' && limit) ? (limit.limit || 50) : (limit || 50);
+    return AdminService.getAuditLogs(context, lim, opId);
+  }, (typeof limit === 'object' && limit) ? limit : sessionRe);
 }
 
 /**
  * Operações do Administrador - Diagnóstico do Sistema
  */
-function apiAdminRunDiagnostics() {
+function apiAdminRunDiagnostics(payload) {
   return runSecureRpc('runDiagnostics', function(context, opId) {
     AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
     return DiagnosticsService.runFullDiagnostics();
-  });
+  }, payload);
 }
 
 /**
  * Operações do Administrador - Backup
  */
-function apiAdminRunBackup() {
+function apiAdminRunBackup(payload) {
   return runSecureRpc('runBackup', function(context, opId) {
     return BackupService.generateBackupSnapshot(context, opId);
-  });
+  }, payload);
 }
 
 /**
@@ -619,7 +627,7 @@ function apiAdminRunBackup() {
 function apiGrantCredit(payload) {
   return runSecureRpc('grantCredit', function(context, opId) {
     return CreditService.grantCredit(context, payload, opId);
-  });
+  }, payload);
 }
 
 /**
@@ -628,7 +636,7 @@ function apiGrantCredit(payload) {
 function apiRegisterLeave(payload) {
   return runSecureRpc('registerLeave', function(context, opId) {
     return LeaveService.registerLeave(context, payload, opId);
-  });
+  }, payload);
 }
 
 /**
@@ -637,25 +645,25 @@ function apiRegisterLeave(payload) {
 function apiRequestSwap(payload) {
   return runSecureRpc('requestSwap', function(context, opId) {
     return SwapService.requestSwap(context, payload, opId);
-  });
+  }, payload);
 }
 
 function apiApproveSwap(payload) {
   return runSecureRpc('approveSwap', function(context, opId) {
     return SwapService.approveSwap(context, payload.permuta_id, opId);
-  });
+  }, payload);
 }
 
-function apiAdminGetPendingSwaps() {
+function apiAdminGetPendingSwaps(payload) {
   return runSecureRpc('adminGetPendingSwaps', function(context) {
     return SwapService.getPendingSwaps(context);
-  });
+  }, payload);
 }
 
 function apiAdminRejectSwap(payload) {
   return runSecureRpc('adminRejectSwap', function(context, opId) {
     return SwapService.rejectSwap(context, payload.permuta_id, payload.motivo, opId);
-  });
+  }, payload);
 }
 
 /**
@@ -670,7 +678,7 @@ function apiChangeChoiceToAvailableDate(payload) {
       payload.justificativa,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -685,7 +693,7 @@ function apiRequestAccumulateLeave(payload) {
       payload.justificativa,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -701,7 +709,7 @@ function apiAdminSetNaoFazJus(payload) {
       payload.justificativa,
       opId
     );
-  });
+  }, payload);
 }
 
 /**
@@ -710,19 +718,19 @@ function apiAdminSetNaoFazJus(payload) {
 function apiAdminApproveAccumulateLeave(payload) {
   return runSecureRpc('approveAccumulateLeave', function(context, opId) {
     return AdminService.approveAccumulateLeave(context, payload.escolha_id, opId);
-  });
+  }, payload);
 }
 
 function apiAdminRejectAccumulateLeave(payload) {
   return runSecureRpc('rejectAccumulateLeave', function(context, opId) {
     return AdminService.rejectAccumulateLeave(context, payload.escolha_id, payload.motivo, opId);
-  });
+  }, payload);
 }
 
-function apiAdminGetPendingAccumulateRequests() {
+function apiAdminGetPendingAccumulateRequests(payload) {
   return runSecureRpc('getPendingAccumulateRequests', function(context, opId) {
     return AdminService.getPendingAccumulateRequests(context, opId);
-  });
+  }, payload);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
