@@ -1,0 +1,235 @@
+<!-- ========================================================================
+     MODALS (Diálogos Modais Interativos e de Confirmação do Sistema)
+     ======================================================================== -->
+
+<!-- Modal de Confirmação de Escolha -->
+<div class="modal-overlay" id="modal-confirm-choice">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Confirmar Escolha de Folga</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">Você está prestes a confirmar sua folga para a seguinte data de serviço:</p>
+      <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 1rem; text-align: center; margin-bottom: 1.25rem;">
+        <span style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary);">Data Selecionada</span>
+        <div style="font-family: var(--font-heading); font-size: 1.75rem; font-weight: 800; color: #fff;" id="modal-choice-date-text">--</div>
+        <span style="font-size: 0.8rem; color: var(--brand-amber);" id="modal-choice-team-text">Plantão de 24 horas</span>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        A confirmação registrará sua escolha no servidor e liberará a vez para o próximo militar da fila. Esta operação é vinculada à sua conta Google e registrada na auditoria.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-cancel-choice">Voltar</button>
+      <button class="btn btn-primary" id="btn-modal-submit-choice">Confirmar Definitivamente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Cancelamento de Escolha -->
+<div class="modal-overlay" id="modal-cancel-choice">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Cancelar Folga Confirmada</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">O cancelamento de uma folga confirmada exige justificativa formal que será gravada na trilha de auditoria.</p>
+      <div class="form-group">
+        <label class="form-label">Motivo / Justificativa do Cancelamento</label>
+        <textarea class="form-textarea" id="cancel-choice-justification" rows="3" placeholder="Informe o motivo formal do cancelamento..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-cancel">Fechar</button>
+      <button class="btn btn-danger" id="btn-modal-confirm-cancel">Confirmar Cancelamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Troca por Dia Vago -->
+<div class="modal-overlay" id="modal-troca-vaga">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Trocar por Outro Dia Vago</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        Como todos os militares da sua equipe já realizaram a escolha inicial, você pode transferir sua folga para qualquer outro dia disponível do plantão.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Sua Folga Atual</label>
+        <input type="text" class="form-input" id="troca-vaga-atual" readonly>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Selecione o Novo Dia Disponível</label>
+        <select class="form-select" id="troca-vaga-select">
+          <option value="">Carregando vagas disponíveis...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Justificativa da Troca (Opcional)</label>
+        <textarea class="form-textarea" id="troca-vaga-justificativa" rows="2" placeholder="Motivo operacional ou pessoal..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-troca-vaga">Cancelar</button>
+      <button class="btn btn-primary" id="btn-modal-confirm-troca-vaga">Efetivar Troca de Dia</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Permuta Direta entre Militares -->
+<div class="modal-overlay" id="modal-permuta-militar">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Permuta de Folga entre Militares</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        Troca direta de datas entre você e outro militar da mesma prontidão que já tenha realizado a escolha.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Sua Folga Atual</label>
+        <input type="text" class="form-input" id="permuta-minha-data" readonly>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Selecione o Militar para Troca</label>
+        <select class="form-select" id="permuta-colega-select">
+          <option value="">Selecione um colega da equipe...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data de Folga do Colega (a receber)</label>
+        <input type="text" class="form-input" id="permuta-colega-data" readonly placeholder="Selecione um militar acima...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Justificativa da Permuta</label>
+        <textarea class="form-textarea" id="permuta-justificativa" rows="2" placeholder="Acordo mútuo entre as partes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-permuta">Cancelar</button>
+      <button class="btn btn-primary" id="btn-modal-confirm-permuta">Solicitar Permuta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Solicitação de Acúmulo de Folga -->
+<div class="modal-overlay" id="modal-solicitar-acumulo">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 style="color: #c084fc;">Acumular Folga para Outro Mês</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        Ao optar por <strong>acumular sua folga</strong>, você abre mão de usufruir o plantão dispensado nesta competência. Sua solicitação será enviada para <strong>validação e homologação pelo Administrador</strong>.
+      </p>
+      <div style="background: rgba(147, 51, 234, 0.12); border: 1px solid rgba(147, 51, 234, 0.3); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="font-weight: 700; color: #c084fc; margin-bottom: 0.25rem;">Regra Institucional:</div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary);">
+          Assim que homologado pelo Administrador, será creditada <strong>1 folga em seu saldo</strong> para gozo futuro e sua vez na fila será liberada imediatamente para o próximo militar.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Justificativa Obrigatória</label>
+        <textarea class="form-textarea" id="acumulo-justificativa" rows="3" placeholder="Informe o motivo da opção por acúmulo da folga para apreciação do Administrador..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-acumulo">Cancelar</button>
+      <button class="btn btn-primary" style="background: linear-gradient(135deg, #7c3aed, #9333ea);" id="btn-modal-confirm-acumulo">Enviar para Homologação</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Recusa de Acúmulo pelo Admin -->
+<div class="modal-overlay" id="modal-recusar-acumulo">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Recusar Solicitação de Acúmulo</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        Informe o motivo formal da não homologação do acúmulo de folga.
+      </p>
+      <input type="hidden" id="recusar-acumulo-escolha-id">
+      <div class="form-group">
+        <label class="form-label">Motivo da Recusa</label>
+        <textarea class="form-textarea" id="recusar-acumulo-motivo" rows="3" placeholder="Ex: Necessidade imperiosa de efetivo operacional na competência."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-recusar-acumulo">Cancelar</button>
+      <button class="btn btn-danger" id="btn-modal-confirm-recusar-acumulo">Confirmar Recusa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Recusa de Permuta pelo Admin -->
+<div class="modal-overlay" id="modal-recusar-permuta">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Recusar Solicitação de Permuta</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        Informe o motivo formal da não homologação da permuta entre os militares.
+      </p>
+      <input type="hidden" id="recusar-permuta-id">
+      <div class="form-group">
+        <label class="form-label">Motivo da Recusa</label>
+        <textarea class="form-textarea" id="recusar-permuta-motivo" rows="3" placeholder="Ex: Incompatibilidade de postos ou necessidade de efetivo da escala."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-modal-close-recusar-permuta">Cancelar</button>
+      <button class="btn btn-danger" id="btn-modal-confirm-recusar-permuta">Confirmar Recusa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Alteração de Senha (CRUD de Senha para o Militar Logado) -->
+<div class="modal-overlay" id="modal-alterar-senha">
+  <div class="modal-card auth-modal-card">
+    <div class="modal-header">
+      <div class="auth-header" style="margin-bottom: 0;">
+        <div class="auth-badge-icon" style="font-size: 2.2rem; margin-bottom: 0.25rem;">🔑</div>
+        <div>
+          <h3 style="color: #fff; margin: 0; font-size: 1.15rem;">Alteração de Senha</h3>
+          <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0.2rem 0 0 0;">Defina uma nova senha pessoal para o seu RE</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.85rem;">
+        A alteração de senha é opcional. Se preferir não alterar, você pode continuar utilizando o seu RE como senha padrão.
+      </p>
+
+      <form id="form-alterar-senha" onsubmit="event.preventDefault(); App.alterarSenha();">
+        <div class="form-group">
+          <label class="form-label" for="alt-senha-re">RE do Militar:</label>
+          <input type="text" class="form-input" id="alt-senha-re" readonly style="background: rgba(15, 23, 42, 0.5); opacity: 0.85; font-weight: 600;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="alt-senha-atual">Senha Atual:</label>
+          <input type="password" class="form-input" id="alt-senha-atual" placeholder="Digite sua senha atual (ou seu RE)" required autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="alt-senha-nova">Nova Senha:</label>
+          <input type="password" class="form-input" id="alt-senha-nova" placeholder="Mínimo 3 caracteres" required minlength="3" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="alt-senha-confirma">Confirmar Nova Senha:</label>
+          <input type="password" class="form-input" id="alt-senha-confirma" placeholder="Repita a nova senha exatamente igual" required minlength="3" autocomplete="new-password">
+        </div>
+        <div id="alt-senha-error-msg" style="display: none; color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 600;"></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="btn-modal-close-alt-senha">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="btn-modal-confirm-alt-senha" onclick="App.alterarSenha();">
+        💾 Salvar Nova Senha
+      </button>
+    </div>
+  </div>
+</div>

@@ -11,6 +11,56 @@ const ChoiceService = (function() {
   let _lockOverride = null;
   let _bypassWindowCheck = false; // Flag para testes automatizados
 
+  // Cache de leitura de alta performance para filas (TTL 20s)
+  const _queueMemoryCache = {};
+
+  function getFromCache(key) {
+    if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+      try {
+        const val = CacheService.getScriptCache().get(key);
+        if (val) return JSON.parse(val);
+      } catch (e) {}
+    }
+    const mem = _queueMemoryCache[key];
+    if (mem && mem.expires > Date.now()) {
+      return mem.data;
+    }
+    return null;
+  }
+
+  function putInCache(key, data, ttlSeconds) {
+    const ttl = ttlSeconds || 20;
+    if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+      try {
+        CacheService.getScriptCache().put(key, JSON.stringify(data), Math.min(Math.max(ttl, 1), 21600));
+      } catch (e) {}
+    }
+    _queueMemoryCache[key] = {
+      data: data,
+      expires: Date.now() + (ttl * 1000)
+    };
+  }
+
+  function invalidateQueueCache(periodoId) {
+    const prefix = periodoId ? `queue_${periodoId}_` : 'queue_';
+    for (const k in _queueMemoryCache) {
+      if (k.startsWith(prefix)) {
+        delete _queueMemoryCache[k];
+      }
+    }
+    if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
+      try {
+        const teams = ['Verde', 'Amarela', 'Azul', 'Equipe A', 'Equipe B', 'Equipe C'];
+        const units = ['ALL', 'TODAS', '703152301 - EB SÃO ROQUE'];
+        teams.forEach(t => {
+          units.forEach(u => {
+            CacheService.getScriptCache().remove(`${prefix}${t}_${u}`);
+          });
+        });
+      } catch (e) {}
+    }
+  }
+
   function getLock() {
     if (_lockOverride) return _lockOverride;
     if (typeof LockService !== 'undefined' && LockService.getScriptLock) {
@@ -29,6 +79,12 @@ const ChoiceService = (function() {
 
     setBypassWindowCheck: function(bypass) {
       _bypassWindowCheck = Boolean(bypass);
+    },
+
+    invalidateQueueCache: invalidateQueueCache,
+
+    clearAllCache: function() {
+      for (const k in _queueMemoryCache) delete _queueMemoryCache[k];
     },
 
     /**
@@ -118,6 +174,12 @@ const ChoiceService = (function() {
       if (!periodo) throw new Error('Período informado não existe.');
 
       const normEquipe = ValidationService.normalizeProntidao ? ValidationService.normalizeProntidao(equipe) : equipe;
+      const cacheKey = `queue_${periodoId}_${normEquipe}_${unidadeFilter || 'ALL'}`;
+      const cached = getFromCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const militares = MilitaryService.getByTeam(normEquipe, unidadeFilter);
       
       // Busca escolhas ativas ou pendentes de validação
@@ -209,7 +271,7 @@ const ChoiceService = (function() {
       const isWindowOpen = (currentDay >= Config.DEFAULTS.CHOICE_WINDOW_START_DAY && currentDay <= Config.DEFAULTS.CHOICE_WINDOW_END_DAY) || _bypassWindowCheck;
       const faseTrocasLiberada = todasEscolhasConcluidas && isWindowOpen;
 
-      return {
+      const result = {
         periodo_id: periodoId,
         competencia: periodo.competencia,
         equipe: equipe,
@@ -224,6 +286,9 @@ const ChoiceService = (function() {
         proximo_da_vez: todasEscolhasConcluidas ? null : (queue.find(q => q.status_fila === 'SUA_VEZ') || null),
         fila: queue
       };
+
+      putInCache(cacheKey, result, 20);
+      return result;
     },
 
     /**
@@ -375,6 +440,7 @@ const ChoiceService = (function() {
         };
 
         Repository.insert(Config.SHEETS.ESCOLHAS, novaEscolha);
+        invalidateQueueCache(periodoId);
 
         AuditService.log({
           userEmail: context.email,
@@ -449,6 +515,7 @@ const ChoiceService = (function() {
           justificativa_cancelamento: `Troca de ${dataAnterior} para ${cleanData}: ${cleanJustificativa}`,
           atualizado_em: now
         });
+        invalidateQueueCache(escolha.periodo_id);
 
         AuditService.log({
           userEmail: context.email,
@@ -520,6 +587,7 @@ const ChoiceService = (function() {
       };
 
       Repository.insert(Config.SHEETS.ESCOLHAS, record);
+      invalidateQueueCache(periodoId);
 
       AuditService.log({
         userEmail: context.email,
@@ -572,6 +640,7 @@ const ChoiceService = (function() {
           justificativa_cancelamento: cleanJustificativa,
           atualizado_em: now
         });
+        invalidateQueueCache(escolha.periodo_id);
 
         AuditService.log({
           userEmail: context.email,

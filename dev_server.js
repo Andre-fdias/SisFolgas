@@ -192,12 +192,19 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/') && !req.url.startsWith('/api')) {
     try {
       let indexHtml = fs.readFileSync(path.join(__dirname, 'Index.html'), 'utf8');
-      const stylesHtml = fs.readFileSync(path.join(__dirname, 'Styles.html'), 'utf8');
-      const scriptsHtml = fs.readFileSync(path.join(__dirname, 'Scripts.html'), 'utf8');
 
-      // Substitui as diretivas include do Google Apps Script
-      indexHtml = indexHtml.replace("<?!= include('Styles'); ?>", stylesHtml);
-      indexHtml = indexHtml.replace("<?!= include('Scripts'); ?>", scriptsHtml);
+      // Substitui dinamicamente todas as diretivas <?!= include('NomeDoArquivo'); ?> do Google Apps Script
+      let includeLimit = 10;
+      while (/<\?!=\s*include\(['"]([^'"]+)['"]\);?\s*\?>/.test(indexHtml) && includeLimit > 0) {
+        indexHtml = indexHtml.replace(/<\?!=\s*include\(['"]([^'"]+)['"]\);?\s*\?>/g, (match, filename) => {
+          const filePath = path.join(__dirname, `${filename}.html`);
+          if (fs.existsSync(filePath)) {
+            return fs.readFileSync(filePath, 'utf8');
+          }
+          return `<!-- Aviso: Template ${filename}.html não encontrado -->`;
+        });
+        includeLimit--;
+      }
 
       // Injeta a barra de troca de usuário e a ponte mockada do google.script.run
       const devBridge = `

@@ -1569,6 +1569,19 @@
         } catch (err) {}
       });
 
+      // Ações Administrativas: Migração em Lote de Senhas para SHA-256
+      document.getElementById('btn-admin-migrate-passwords')?.addEventListener('click', async () => {
+        if (!confirm('Deseja converter em lote todas as senhas legadas em texto plano para SHA-256 com salt institucional seguro?')) {
+          return;
+        }
+        try {
+          const res = await callServer('apiAdminMigratePasswords', null, 'Criptografando senhas legadas em SHA-256...');
+          showToast(res.mensagem || 'Migração de senhas concluída com sucesso!', 'success');
+        } catch (err) {
+          showToast('Falha ao migrar senhas: ' + err.message, 'error');
+        }
+      });
+
       // Ações Administrativas: Recarregar Trilha de Auditoria
       document.getElementById('btn-refresh-audit')?.addEventListener('click', async () => {
         try {

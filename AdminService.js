@@ -37,6 +37,9 @@ const AdminService = (function() {
       };
 
       Repository.insert(Config.SHEETS.ESCOLHAS, escolhaPassada);
+      if (typeof ChoiceService !== 'undefined' && ChoiceService.invalidateQueueCache) {
+        ChoiceService.invalidateQueueCache(periodoId);
+      }
 
       AuditService.log({
         userEmail: context.email,
@@ -137,6 +140,9 @@ const AdminService = (function() {
       };
 
       Repository.insert(Config.SHEETS.ESCOLHAS, record);
+      if (typeof ChoiceService !== 'undefined' && ChoiceService.invalidateQueueCache) {
+        ChoiceService.invalidateQueueCache(periodoId);
+      }
 
       AuditService.log({
         userEmail: context.email,
@@ -178,6 +184,9 @@ const AdminService = (function() {
         status: Config.CHOICE_STATUS.ATIVA,
         atualizado_em: now
       });
+      if (typeof ChoiceService !== 'undefined' && ChoiceService.invalidateQueueCache) {
+        ChoiceService.invalidateQueueCache(escolha.periodo_id);
+      }
 
       // 2. Concede 1 crédito disponível para uso futuro
       const creditoId = ValidationService.generateUuid();
@@ -233,6 +242,9 @@ const AdminService = (function() {
         justificativa_cancelamento: `Acúmulo recusado: ${cleanMotivo}`,
         atualizado_em: now
       });
+      if (typeof ChoiceService !== 'undefined' && ChoiceService.invalidateQueueCache) {
+        ChoiceService.invalidateQueueCache(escolha.periodo_id);
+      }
 
       AuditService.log({
         userEmail: context.email,
@@ -277,6 +289,55 @@ const AdminService = (function() {
           justificativa: p.justificativa_cancelamento
         };
       });
+    },
+
+    /**
+     * Migração em lote de senhas legadas em texto plano para SHA-256 + Salt (Apenas ADMIN)
+     */
+    migratePasswordsToHash: function(context, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
+
+      const usuarios = Repository.getAll(Config.SHEETS.USUARIOS);
+      let totalMigrados = 0;
+      let totalJaHashed = 0;
+      const now = new Date().toISOString();
+
+      usuarios.forEach(u => {
+        const rawSenha = String(u.senha || '').trim();
+        if (rawSenha) {
+          if (AuthService.isHashed(rawSenha)) {
+            totalJaHashed++;
+          } else {
+            const hashed = AuthService.hashPassword(rawSenha);
+            const idField = u.usuario_id ? 'usuario_id' : (u.militar_id ? 'militar_id' : 're');
+            const idVal = u[idField];
+            Repository.updateById(Config.SHEETS.USUARIOS, idField, idVal, {
+              senha: hashed,
+              atualizado_em: now
+            });
+            totalMigrados++;
+          }
+        }
+      });
+
+      AuditService.log({
+        userEmail: context.email,
+        acao: 'MIGRACAO_SENHAS_HASH',
+        entidade: 'USUARIOS',
+        resultado: Config.AUDIT_RESULT.SUCESSO,
+        justificativa: `Migração em lote de senhas legadas para hash SHA-256 executada. ${totalMigrados} senhas criptografadas, ${totalJaHashed} já protegidas.`,
+        dadosPosteriores: { totalMigrados: totalMigrados, totalJaHashed: totalJaHashed },
+        opId: opId
+      });
+
+      return {
+        success: true,
+        totalMigrados: totalMigrados,
+        totalJaHashed: totalJaHashed,
+        mensagem: totalMigrados > 0 
+          ? `Migração concluída com sucesso! ${totalMigrados} senha(s) convertida(s) para hash criptográfico SHA-256.`
+          : `Todas as senhas de usuários (${totalJaHashed}) já estão criptografadas com SHA-256.`
+      };
     }
   };
 })();

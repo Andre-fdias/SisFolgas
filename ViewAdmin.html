@@ -1,0 +1,81 @@
+<!-- ========================================================================
+     VIEW ADMIN (Painel de Administração, Auditoria e Segurança)
+     ======================================================================== -->
+<section class="tab-pane" id="tab-admin">
+  <!-- Banner de Acesso Direto à Planilha Base Google Sheets -->
+  <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(16, 185, 129, 0.45); border-radius: var(--radius-lg); padding: 1.25rem 1.75rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);">
+    <div style="display: flex; align-items: center; gap: 1.1rem;">
+      <div style="font-size: 2.2rem; background: rgba(16, 185, 129, 0.2); width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.4); flex-shrink: 0;">
+        📊
+      </div>
+      <div>
+        <h3 style="color: #34d399; font-size: 1.15rem; margin-bottom: 0.25rem; font-family: var(--font-heading); font-weight: 700;">
+          Planilha Base de Dados do SisFolgas
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+          Acesse diretamente a planilha Google oficial vinculada ao sistema (MILITARES, PERIODOS, ESCOLHAS, AUDITORIA, etc.).
+        </p>
+      </div>
+    </div>
+    <a id="link-admin-open-sheet-banner" href="https://docs.google.com/spreadsheets/d/1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #10b981); border: 1px solid #34d399; color: #fff; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1.5rem; font-size: 0.95rem; border-radius: var(--radius-md); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+      <span>📑 Abrir Planilha Base no Google Sheets ↗</span>
+    </a>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Ações Administrativas</div>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+        <a id="btn-admin-open-spreadsheet" href="https://docs.google.com/spreadsheets/d/1lZ7YX6QnSZYES1_FziJczRPxbsu7DUdJdjd63zRj7CU/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.5); color: #34d399; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" title="Abrir Planilha Google de Gestão de Dados">
+          📊 Acessar Planilha Base
+        </a>
+        <button class="btn btn-secondary" id="btn-admin-diagnostics">Executar Diagnóstico do Banco</button>
+        <button class="btn btn-secondary" id="btn-admin-backup">Gerar Snapshot de Backup</button>
+        <button class="btn btn-secondary" id="btn-admin-new-period">Abrir / Pausar Período</button>
+        <button class="btn btn-secondary" id="btn-admin-migrate-passwords" style="border-color: rgba(99, 102, 241, 0.5); color: #a5b4fc; font-weight: 600;">
+          🔒 Criptografar Senhas Legadas (SHA-256)
+        </button>
+      </div>
+    </div>
+
+    <div class="kpi-card" style="grid-column: span 2;">
+      <div class="kpi-label">Diagnóstico de Integridade</div>
+      <div id="diagnostics-summary-box" style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+        Clique em "Executar Diagnóstico do Banco" para verificar integridade, duplicidades de RE e colisões de vagas.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Trilha de Auditoria -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div>
+        <h3 style="font-family: var(--font-heading); font-size: 1.1rem;">Trilha Imutável de Auditoria (Append-Only)</h3>
+        <p style="color: var(--text-secondary); font-size: 0.8rem;">Registro de segurança identificando e-mails reais, timestamps e resultados.</p>
+      </div>
+      <button class="btn btn-secondary" id="btn-refresh-audit">Recarregar Trilha</button>
+    </div>
+
+    <div class="table-container">
+      <table class="queue-table">
+        <thead>
+          <tr>
+            <th>Data/Hora</th>
+            <th>Usuário Autenticado</th>
+            <th>Ação</th>
+            <th>Entidade</th>
+            <th>Resultado</th>
+            <th>Justificativa</th>
+          </tr>
+        </thead>
+        <tbody id="audit-table-body">
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Clique em Recarregar Trilha para visualizar os eventos.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

@@ -134,6 +134,10 @@ const SwapService = (function() {
         atualizado_em: now
       });
 
+      if (typeof ChoiceService !== 'undefined' && ChoiceService.invalidateQueueCache) {
+        ChoiceService.invalidateQueueCache(eOrigem.periodo_id);
+      }
+
       const updatedPermuta = Repository.updateById(Config.SHEETS.PERMUTAS, 'permuta_id', cleanId, {
         status: Config.SWAP_STATUS.APROVADA,
         aprovado_por: context.email,

@@ -64,6 +64,15 @@ const AuthService = (function() {
     },
 
     /**
+     * Verifica se uma string de senha já está formatada como hash SHA-256 (64 hexadecimais)
+     */
+    isHashed: function(str) {
+      if (!str) return false;
+      const s = String(str).trim();
+      return s.length === 64 && /^[0-9a-fA-F]{64}$/.test(s);
+    },
+
+    /**
      * Gera token efêmero de sessão para o militar
      */
     generateSessionToken: function(re) {

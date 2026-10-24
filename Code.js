@@ -63,10 +63,14 @@ function doGet(e) {
  */
 function include(filename) {
   try {
-    return HtmlService.createHtmlOutputFromFile(filename).getContent();
+    return HtmlService.createTemplateFromFile(filename).evaluate().getContent();
   } catch (err) {
-    Logger.log('Erro ao incluir template modular ' + filename + ': ' + (err ? err.stack || err.message : err));
-    return '<!-- Erro ao incluir ' + filename + ': ' + (err ? err.message : '') + ' -->';
+    try {
+      return HtmlService.createHtmlOutputFromFile(filename).getContent();
+    } catch (e2) {
+      Logger.log('Erro ao incluir template modular ' + filename + ': ' + (err ? err.stack || err.message : err));
+      return '<!-- Erro ao incluir ' + filename + ': ' + (err ? err.message : '') + ' -->';
+    }
   }
 }
 
@@ -733,11 +737,21 @@ function apiAdminGetPendingAccumulateRequests(payload) {
   }, payload);
 }
 
+/**
+ * Migração em lote de senhas legadas para SHA-256 (Apenas ADMINISTRADOR)
+ */
+function apiAdminMigratePasswords(payload) {
+  return runSecureRpc('migratePasswordsToHash', function(context, opId) {
+    return AdminService.migratePasswordsToHash(context, opId);
+  }, payload);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     doGet,
     include,
     runSecureRpc,
+    apiAdminMigratePasswords,
     apiGetInitialState,
     apiGetTeamQueue,
     apiMakeChoice,

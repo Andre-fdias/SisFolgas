@@ -1,0 +1,370 @@
+<!-- ========================================================================
+     VIEW DASHBOARD (Abas Operacionais: Minha Escolha, Fila, Militares, Gestor)
+     ======================================================================== -->
+
+<!-- Tab 1: Minha Escolha -->
+<section class="tab-pane active" id="tab-escolha">
+  <div id="choice-banner" class="turn-banner">
+    <div>
+      <h2 style="font-family: var(--font-heading); font-size: 1.25rem;" id="choice-banner-title">
+        <span class="pulse-indicator" id="turn-pulse"></span>
+        Aguardando carregamento da sua vez...
+      </h2>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.35rem;" id="choice-banner-desc">
+        A escolha de folga obedece à ordem oficial de antiguidade cadastrada na equipe.
+      </p>
+    </div>
+    <div id="choice-banner-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button class="btn btn-primary" id="btn-confirmar-escolha" disabled>Confirmar Escolha de Folga</button>
+      <button class="btn btn-secondary" id="btn-solicitar-acumulo" style="display: none;">Acumular Folga (Outro Mês)</button>
+    </div>
+  </div>
+
+  <!-- Detalhes da Escolha Confirmada (se houver) -->
+  <div id="confirmed-choice-box" style="display: none; background: var(--bg-card); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h3 style="color: var(--status-success); margin-bottom: 0.5rem;">Sua folga está confirmada e homologada!</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Data do seu plantão dispensado: <strong id="confirmed-date-display" style="color: #fff; font-size: 1.15rem;">--</strong></p>
+      </div>
+      <button class="btn btn-danger" id="btn-cancelar-escolha" style="font-size: 0.82rem;">Solicitar Cancelamento Justificado</button>
+    </div>
+
+    <!-- Área de Trocas e Permutas (Liberada após todos da equipe escolherem) -->
+    <div id="swap-phase-section" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div>
+          <strong id="swap-phase-title" style="font-size: 0.95rem; color: #fff;">Fase de Trocas e Permutas</strong>
+          <p id="swap-phase-subtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.2rem;">
+            Liberada exclusivamente entre os dias 01 e 16 após todos os militares da equipe escolherem.
+          </p>
+        </div>
+        <div id="swap-phase-badge" class="status-badge badge-aguardando">Aguardando Equipe</div>
+      </div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="swap-action-buttons">
+        <button class="btn btn-secondary" id="btn-abrir-troca-vaga" disabled>🔄 Trocar por Outro Dia Vago</button>
+        <button class="btn btn-secondary" id="btn-abrir-permuta" disabled>👥 Permutar com Colega</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detalhes de Acúmulo Pendente de Homologação (se o militar solicitou acúmulo) -->
+  <div id="pending-accumulation-box" style="display: none; background: var(--bg-card); border: 2px solid rgba(168, 85, 247, 0.4); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <div style="font-size: 2.5rem;">⏳</div>
+      <div style="flex: 1;">
+        <h3 style="color: #c084fc; margin-bottom: 0.35rem; font-family: var(--font-heading);">Sua solicitação de acúmulo de folga está em análise</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 0.25rem;">
+          Você optou formalmente por acumular sua folga desta competência para fruição em meses futuros.
+        </p>
+        <p style="color: #d8b4fe; font-size: 0.82rem;">
+          Situação: <strong>Aguardando validação do Administrador no Painel Operacional</strong>. Assim que homologada, será gerado automaticamente 1 crédito em seu extrato e o registro será finalizado.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid de Datas de Plantão da Equipe -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <div>
+        <h3 style="font-family: var(--font-heading); font-size: 1.1rem;">Dias de Plantão da Sua Equipe (Escala 24x48)</h3>
+        <p style="color: var(--text-secondary); font-size: 0.8rem;">Selecione um dos dias disponíveis em que sua equipe estará de serviço de 24h.</p>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        Legenda: <span style="color: var(--status-success);">● Disponível</span> &nbsp;|&nbsp; <span style="color: var(--status-danger);">● Ocupada</span>
+      </div>
+    </div>
+
+    <div class="dates-grid" id="eligible-dates-container">
+      <!-- Gerado dinamicamente via JavaScript -->
+    </div>
+  </div>
+</section>
+
+<!-- Tab 2: Fila das Prontidões (Filtrada por Unidade e Prontidão com Antiguidade Geral) -->
+<section class="tab-pane" id="tab-fila">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;" id="team-selector-buttons">
+      <button class="btn btn-secondary active-team" data-team="Verde" id="btn-team-verde">🟢 Prontidão Verde</button>
+      <button class="btn btn-secondary" data-team="Amarela" id="btn-team-amarela">🟡 Prontidão Amarela</button>
+      <button class="btn btn-secondary" data-team="Azul" id="btn-team-azul">🔵 Prontidão Azul</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <label for="select-unidade-queue" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">Unidade (Col G):</label>
+        <select id="select-unidade-queue" class="form-select" style="min-width: 140px; padding: 0.4rem 0.65rem; font-size: 0.85rem;">
+          <option value="TODAS" selected>Todas as Unidades</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" id="btn-refresh-queue">🔄 Atualizar Fila</button>
+      <button class="btn btn-secondary" id="btn-print-escala" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 0.4rem; border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;">
+        🖨️ Imprimir / Salvar PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="queue-table">
+      <thead>
+        <tr>
+          <th style="width: 80px; text-align: center;">Vez</th>
+          <th>RE (ID)</th>
+          <th>Graduação</th>
+          <th>Nome de Guerra</th>
+          <th>Unidade (Col G)</th>
+          <th>Prontidão (Col I)</th>
+          <th style="text-align: center;">Antiguidade Geral (Col J)</th>
+          <th>Situação da Escolha</th>
+          <th>Data Escolhida</th>
+        </tr>
+      </thead>
+      <tbody id="queue-table-body">
+        <tr>
+          <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando fila da prontidão...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Tab 2.5: Efetivo de Militares (Listagem Oficial da Planilha) -->
+<section class="tab-pane" id="tab-militares">
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+      <div>
+        <h2 style="font-family: var(--font-heading); font-size: 1.25rem; color: #fff; margin-bottom: 0.25rem;">
+          👥 Efetivo de Bombeiros Militares Cadastrados
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;">
+          Mapeamento fiel à planilha: <strong>Unidade (Col G)</strong> • <strong>Situação (Col H)</strong> • <strong>Prontidão (Col I)</strong> • <strong>Antiguidade Geral (Col J)</strong>.
+        </p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="militar-team-filter-buttons">
+        <button class="btn btn-secondary active-team" data-filter="TODAS" id="btn-militar-filter-all">Todas as Prontidões</button>
+        <button class="btn btn-secondary" data-filter="Verde" id="btn-militar-filter-verde">🟢 Verde</button>
+        <button class="btn btn-secondary" data-filter="Amarela" id="btn-militar-filter-amarela">🟡 Amarela</button>
+        <button class="btn btn-secondary" data-filter="Azul" id="btn-militar-filter-azul">🔵 Azul</button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+      <input type="text" id="militar-search-input" placeholder="🔍 Buscar por RE, Nome de Guerra, Graduação..." style="flex: 1; min-width: 240px; padding: 0.65rem 1rem; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: #fff; font-size: 0.88rem;">
+      
+      <div style="display: align-items: center; gap: 0.4rem;">
+        <label for="select-unidade-militares" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">Filtrar Unidade:</label>
+        <select id="select-unidade-militares" class="form-select" style="min-width: 140px; padding: 0.5rem 0.75rem; font-size: 0.85rem;">
+          <option value="TODAS" selected>Todas as Unidades</option>
+        </select>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-refresh-militares-list">🔄 Atualizar Efetivo</button>
+      <button class="btn btn-secondary" id="btn-print-militares" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 0.4rem; border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;">
+        🖨️ Imprimir Efetivo
+      </button>
+    </div>
+
+    <div class="table-container">
+      <table class="queue-table">
+        <thead>
+          <tr>
+            <th style="width: 110px;">RE (Col B)</th>
+            <th>Graduação (Col F)</th>
+            <th>Nome de Guerra (Col E)</th>
+            <th>Unidade (Col G)</th>
+            <th>Situação (Col H)</th>
+            <th>Prontidão (Col I)</th>
+            <th style="width: 120px; text-align: center;">Antiguidade (Col J)</th>
+            <th style="text-align: center; width: 220px;">Ações de Acesso / Senha</th>
+          </tr>
+        </thead>
+        <tbody id="militares-table-body">
+          <tr>
+            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Carregando efetivo de militares...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Tab 3: Painel Operacional (Gestor / Admin) -->
+<section class="tab-pane" id="tab-gestor">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+    
+    <!-- 1. Homologação Administrativa de Acúmulo de Folgas (Destaque Principal) -->
+    <div style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.9)); border: 2px solid rgba(168, 85, 247, 0.4); border-radius: var(--radius-lg); padding: 1.75rem; grid-column: 1 / -1; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.8rem;">📋</span>
+          <div>
+            <h3 style="font-family: var(--font-heading); margin-bottom: 0.2rem; color: #c084fc; font-size: 1.2rem;">Validação e Homologação de Acúmulo de Folga</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">
+              Aprecie os pedidos de militares que optaram por acumular a folga em vez de usufruir na competência atual.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="btn-refresh-pending-accumulate" style="font-size: 0.82rem; border-color: rgba(168, 85, 247, 0.5);">🔄 Atualizar Pedidos</button>
+      </div>
+
+      <div class="table-container" style="background: rgba(11, 15, 25, 0.6); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>Militar Solicitante</th>
+              <th>Prontidão</th>
+              <th>Competência</th>
+              <th>Justificativa Apresentada</th>
+              <th>Data da Solicitação</th>
+              <th style="width: 200px; text-align: center;">Decisão Administrativa</th>
+            </tr>
+          </thead>
+          <tbody id="pending-accumulate-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma solicitação de acúmulo pendente no momento.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Validação e Homologação de Permutas entre Militares -->
+    <div style="background: var(--bg-card); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.8rem;">🔄</span>
+          <div>
+            <h3 style="font-family: var(--font-heading); margin-bottom: 0.2rem; color: #60a5fa; font-size: 1.2rem;">Validação e Homologação de Permutas de Folga</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">
+              Aprecie os pedidos de permuta direta de datas entre militares da mesma prontidão.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="btn-refresh-pending-swaps" style="font-size: 0.82rem; border-color: rgba(59, 130, 246, 0.5);">🔄 Atualizar Permutas</button>
+      </div>
+
+      <div class="table-container" style="background: rgba(11, 15, 25, 0.6); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>Militar Solicitante (Origem)</th>
+              <th>Militar de Destino</th>
+              <th>Justificativa Apresentada</th>
+              <th>Data do Pedido</th>
+              <th style="width: 200px; text-align: center;">Decisão Administrativa</th>
+            </tr>
+          </thead>
+          <tbody id="pending-swaps-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">Nenhuma permuta pendente de homologação no momento.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2. Registro de Não Faz Jus (Férias, Licença-Prêmio, Convalescença, LTS) -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+      <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--brand-amber);">Marcar "Não Faz Jus" (Pula a Vez)</h3>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+        Militares em férias, licença-prêmio, convalescença ou LTS não escolhem folga. O registro avança a fila diretamente para o próximo.
+      </p>
+
+      <form id="form-nao-faz-jus">
+        <div class="form-group">
+          <label class="form-label">Prontidão</label>
+          <select class="form-select" id="nao-faz-jus-team-select">
+            <option value="Verde">🟢 Prontidão Verde</option>
+            <option value="Amarela">🟡 Prontidão Amarela</option>
+            <option value="Azul">🔵 Prontidão Azul</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Militar</label>
+          <select class="form-select" id="nao-faz-jus-militar-select">
+            <option value="">Carregando militares...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motivo Legal / Regulamentar</label>
+          <select class="form-select" id="nao-faz-jus-motivo-select">
+            <option value="FERIAS">Férias Regulamentares</option>
+            <option value="LICENCA_PREMIO">Licença-Prêmio</option>
+            <option value="CONVALESCENCA">Convalescença</option>
+            <option value="LTS">Licença para Tratamento de Saúde (LTS)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Justificativa / Portaria / Documento</label>
+          <textarea class="form-textarea" id="nao-faz-jus-justificativa" rows="2" placeholder="Ex: Publicado no Boletim Geral nº 45/2026."></textarea>
+        </div>
+        <button type="submit" class="btn btn-secondary" style="border-color: rgba(245, 158, 11, 0.5); color: var(--brand-amber);" id="btn-submit-nao-faz-jus">Marcar Não Faz Jus e Pular a Vez</button>
+      </form>
+    </div>
+
+    <!-- 3. Passagem de Vez Justificada -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+      <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Passagem de Vez na Fila</h3>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+        Se o militar que está na vez excedeu o prazo de 24h sem manifestação, o Gestor pode registrar a passagem de vez justificada para liberar a fila.
+      </p>
+
+      <form id="form-pass-turn">
+        <div class="form-group">
+          <label class="form-label">Equipe</label>
+          <select class="form-select" id="pass-turn-team-select">
+            <option value="Equipe A">Equipe A</option>
+            <option value="Equipe B">Equipe B</option>
+            <option value="Equipe C">Equipe C</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Militar Atual da Vez</label>
+          <input type="text" class="form-input" id="pass-turn-military-name" readonly placeholder="Calculando próximo da vez...">
+          <input type="hidden" id="pass-turn-military-id">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Justificativa Operacional Obrigatória</label>
+          <textarea class="form-textarea" id="pass-turn-justification" rows="2" placeholder="Ex: Prazo de 24h expirado sem contato do militar conforme escala de serviço."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn-submit-pass-turn">Passar a Vez Justificadamente</button>
+      </form>
+    </div>
+
+    <!-- 4. Registro de Afastamento Operacional -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem;">
+      <h3 style="font-family: var(--font-heading); margin-bottom: 0.5rem;">Registro de Afastamento (LGPD)</h3>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+        Registra férias regulamentares ou licenças operacionais sem expor dados médicos ou CIDs.
+      </p>
+
+      <form id="form-register-leave">
+        <div class="form-group">
+          <label class="form-label">ID do Militar</label>
+          <input type="text" class="form-input" id="leave-military-id" placeholder="UUID do Militar">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label">Data Início</label>
+            <input type="date" class="form-input" id="leave-start-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data Fim</label>
+            <input type="date" class="form-input" id="leave-end-date">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo Operacional</label>
+          <select class="form-select" id="leave-type-select">
+            <option value="FERIAS">Férias Regulamentares</option>
+            <option value="LICENCA_PREMIO">Licença-Prêmio</option>
+            <option value="DISPENSA_SERVICO">Dispensa de Serviço</option>
+            <option value="CURSO">Curso de Especialização</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-secondary" id="btn-submit-leave">Registrar Afastamento</button>
+      </form>
+    </div>
+
+  </div>
+</section>
