@@ -323,6 +323,22 @@ const Repository = (function() {
       } else {
         sheet.appendRow([chave, valStr, descricao || '', tipo, now, 'SISTEMA']);
       }
+    },
+
+    /**
+     * Alias para getAll
+     */
+    findAll: function(sheetName) {
+      return this.getAll(sheetName);
+    },
+
+    /**
+     * Busca por chave primária de acordo com o esquema da aba
+     */
+    findById: function(sheetName, idValue) {
+      const schemas = Config.SCHEMAS;
+      const pkField = (schemas && schemas[sheetName] && schemas[sheetName][0]) || 'id';
+      return this.findOne(sheetName, pkField, idValue);
     }
   };
 })();

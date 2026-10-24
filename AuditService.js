@@ -64,6 +64,23 @@ const AuditService = (function() {
         dados_posteriores: details,
         opId: opId
       });
+    },
+
+    /**
+     * Alias para compatibilidade com NotificationService e serviços externos
+     */
+    logEvent: function(params) {
+      return this.log({
+        userEmail: params.usuario_email || params.userEmail,
+        militarId: params.militar_id || params.militarId,
+        acao: params.tipo_evento || params.acao,
+        entidade: params.entidade || 'SISTEMA',
+        registroId: params.registro_id || params.registroId,
+        resultado: params.resultado || Config.AUDIT_RESULT.SUCESSO,
+        justificativa: params.justificativa || '',
+        dadosPosteriores: params.dados_novos_json || params.dadosPosteriores,
+        opId: params.correlacao_id || params.opId
+      });
     }
   };
 })();

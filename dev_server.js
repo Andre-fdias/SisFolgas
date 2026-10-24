@@ -23,6 +23,8 @@ global.LeaveService = require('./LeaveService.js');
 global.DiagnosticsService = require('./DiagnosticsService.js');
 global.BackupService = require('./BackupService.js');
 global.AdminService = require('./AdminService.js');
+global.ReportService = require('./ReportService.js');
+global.NotificationService = require('./NotificationService.js');
 global.SeedData = require('./SeedData.js');
 global.Code = require('./Code.js');
 
@@ -40,6 +42,8 @@ const LeaveService = global.LeaveService;
 const DiagnosticsService = global.DiagnosticsService;
 const BackupService = global.BackupService;
 const AdminService = global.AdminService;
+const ReportService = global.ReportService;
+const NotificationService = global.NotificationService;
 const SeedData = global.SeedData;
 const Code = global.Code;
 
@@ -426,6 +430,19 @@ const server = http.createServer((req, res) => {
     ChoiceService.setBypassWindowCheck(simulatedWindowOpen);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, windowOpen: simulatedWindowOpen }));
+    return;
+  }
+
+  // Rota para servir manifest.json PWA
+  if (req.method === 'GET' && (req.url === '/manifest.json' || req.url === '/?page=manifest')) {
+    const manifestPath = path.join(__dirname, 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(fs.readFileSync(manifestPath, 'utf-8'));
+    } else {
+      res.writeHead(404);
+      res.end('Manifest not found');
+    }
     return;
   }
 

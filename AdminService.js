@@ -338,6 +338,50 @@ const AdminService = (function() {
           ? `Migração concluída com sucesso! ${totalMigrados} senha(s) convertida(s) para hash criptográfico SHA-256.`
           : `Todas as senhas de usuários (${totalJaHashed}) já estão criptografadas com SHA-256.`
       };
+    },
+
+    /**
+     * Obtém as configurações de notificação e automação
+     */
+    getSettings: function(context, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN, Config.ROLES.GESTOR], opId);
+      if (typeof NotificationService !== 'undefined') {
+        return NotificationService.getSettings();
+      }
+      return {};
+    },
+
+    /**
+     * Salva as configurações de notificação e automação (Requer ADMIN)
+     */
+    saveSettings: function(context, settings, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
+      if (typeof NotificationService !== 'undefined') {
+        return NotificationService.saveSettings(context, settings, opId);
+      }
+      throw new Error('NotificationService indisponível.');
+    },
+
+    /**
+     * Executa manualmente a rotina de fechamento do dia 17 e despacho de PDF
+     */
+    executeClosingRoutine: function(context, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
+      if (typeof NotificationService !== 'undefined') {
+        return NotificationService.executeMonthlyClosingRoutine(opId);
+      }
+      throw new Error('NotificationService indisponível.');
+    },
+
+    /**
+     * Executa manualmente a rotina de abertura do dia 01
+     */
+    executeOpeningRoutine: function(context, opId) {
+      AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
+      if (typeof NotificationService !== 'undefined') {
+        return NotificationService.executeMonthlyOpeningRoutine(opId);
+      }
+      throw new Error('NotificationService indisponível.');
     }
   };
 })();

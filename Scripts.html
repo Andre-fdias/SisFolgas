@@ -601,6 +601,35 @@
       if (btnOpenSheet) btnOpenSheet.href = sheetUrl;
       const linkBannerSheet = document.getElementById('link-admin-open-sheet-banner');
       if (linkBannerSheet) linkBannerSheet.href = sheetUrl;
+
+      if (isAdmin) {
+        loadAdminSettings();
+      }
+    }
+
+    async function loadAdminSettings() {
+      try {
+        const settings = await callServer('apiGetSettings', null);
+        if (!settings) return;
+        const emailInput = document.getElementById('input-admin-email-escala');
+        const autoCheck = document.getElementById('check-admin-auto-trigger');
+        const statusBox = document.getElementById('box-admin-closing-status');
+
+        if (emailInput && settings.emailNotificacao !== undefined) {
+          emailInput.value = settings.emailNotificacao || '';
+        }
+        if (autoCheck && settings.autoTriggerAtivo !== undefined) {
+          autoCheck.checked = Boolean(settings.autoTriggerAtivo);
+        }
+        if (statusBox) {
+          const dataUlt = settings.ultimoFechamentoData ? new Date(settings.ultimoFechamentoData).toLocaleString('pt-BR') : 'Nenhum fechamento registrado';
+          const statusUlt = settings.ultimoFechamentoStatus || 'Aguardando próximo dia 17.';
+          const isOk = statusUlt.includes('SUCESSO');
+          statusBox.innerHTML = `<strong>Último Fechamento:</strong> ${dataUlt}<br><span style="color: ${isOk ? '#34d399' : '#94a3b8'};">${statusUlt}</span>`;
+        }
+      } catch (err) {
+        console.error('Erro ao carregar configurações administrativas:', err);
+      }
     }
 
     function renderKpis() {
@@ -1579,6 +1608,52 @@
           showToast(res.mensagem || 'Migração de senhas concluída com sucesso!', 'success');
         } catch (err) {
           showToast('Falha ao migrar senhas: ' + err.message, 'error');
+        }
+      });
+
+      // Ações Administrativas: Salvar Configurações (E-mail de Notificação e Fechamento)
+      document.getElementById('btn-admin-save-settings')?.addEventListener('click', async () => {
+        const email = (document.getElementById('input-admin-email-escala')?.value || '').trim();
+        const autoTrigger = document.getElementById('check-admin-auto-trigger')?.checked ?? true;
+
+        if (email) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            showToast('Por favor, informe um endereço de e-mail válido para a escala.', 'error');
+            return;
+          }
+        }
+
+        try {
+          await callServer('apiSaveSettings', {
+            settings: {
+              emailNotificacao: email,
+              autoTriggerAtivo: autoTrigger
+            }
+          }, 'Salvando configurações institucionais...');
+          showToast('Configurações de notificação salvas com sucesso!', 'success');
+          await loadAdminSettings();
+        } catch (err) {
+          showToast('Erro ao salvar configurações: ' + err.message, 'error');
+        }
+      });
+
+      // Ações Administrativas: Simular Fechamento Dia 17 e Envio de PDF Agora
+      document.getElementById('btn-admin-run-closing-now')?.addEventListener('click', async () => {
+        const email = (document.getElementById('input-admin-email-escala')?.value || '').trim();
+        const promptMsg = email 
+          ? `Deseja executar a rotina de fechamento agora? O período ativo será encerrado, militares sem escolha serão finalizados e a Escala Oficial em PDF será gerada e enviada para:\n\n${email}`
+          : 'Deseja executar a rotina de fechamento agora? O período ativo será encerrado e militares sem escolha serão finalizados.\n\n(Aviso: Nenhum e-mail de destino está cadastrado).';
+
+        if (!confirm(promptMsg)) return;
+
+        try {
+          const res = await callServer('apiAdminExecuteClosingRoutine', null, 'Executando fechamento, gerando PDF e despachando e-mail...');
+          showToast(`Fechamento concluído com sucesso! Pendências resolvidas: ${res.pendenciasResolvidas || 0}. Destino: ${res.emailEnviadoPara}`, 'success');
+          await loadAdminSettings();
+          await loadInitialState();
+        } catch (err) {
+          showToast('Erro na rotina de fechamento: ' + err.message, 'error');
         }
       });
 

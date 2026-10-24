@@ -19,6 +19,8 @@ if (typeof module !== 'undefined' && module.exports) {
     global.SwapService = global.SwapService || require('./SwapService.js');
     global.DiagnosticsService = global.DiagnosticsService || require('./DiagnosticsService.js');
     global.BackupService = global.BackupService || require('./BackupService.js');
+    global.ReportService = global.ReportService || require('./ReportService.js');
+    global.NotificationService = global.NotificationService || require('./NotificationService.js');
   }
 }
 
@@ -27,11 +29,41 @@ if (typeof module !== 'undefined' && module.exports) {
  */
 function doGet(e) {
   try {
+    if (e && e.parameter && (e.parameter.page === 'manifest' || e.parameter.manifest === 'true')) {
+      const manifest = {
+        name: "SisFolgas- São Roque",
+        short_name: "SisFolgas",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#dc2626",
+        description: "Sistema de Gestão de Escala de Folgas - 2º SGB Eb São Roque",
+        icons: [
+          {
+            src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23dc2626'/%3E%3Cpath d='M50 15 L75 35 L75 80 L25 80 L25 35 Z' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='52' r='14' fill='%23dc2626'/%3E%3Cpath d='M46 38 L54 38 L54 66 L46 66 Z' fill='%23ffffff'/%3E%3Cpath d='M36 48 L64 48 L64 56 L36 56 Z' fill='%23ffffff'/%3E%3C/svg%3E",
+            sizes: "192x192 512x512",
+            type: "image/svg+xml",
+            purpose: "any maskable"
+          }
+        ]
+      };
+      if (typeof ContentService !== 'undefined' && ContentService.createTextOutput) {
+        return ContentService.createTextOutput(JSON.stringify(manifest))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      return JSON.stringify(manifest);
+    }
+
     const appTitle = (typeof Config !== 'undefined' && Config.APP_NAME) ? Config.APP_NAME : 'SisFolgas- São Roque';
     const template = HtmlService.createTemplateFromFile('Index');
     return template.evaluate()
       .setTitle(appTitle)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+      .addMetaTag('theme-color', '#dc2626')
+      .addMetaTag('mobile-web-app-capable', 'yes')
+      .addMetaTag('apple-mobile-web-app-capable', 'yes')
+      .addMetaTag('apple-mobile-web-app-status-bar-style', 'black-translucent')
+      .addMetaTag('apple-mobile-web-app-title', 'SisFolgas')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } catch (err) {
     Logger.log('Erro de Inicialização no doGet: ' + (err ? (err.stack || err.message) : err));
@@ -746,12 +778,62 @@ function apiAdminMigratePasswords(payload) {
   }, payload);
 }
 
+/**
+ * Consulta de configurações gerais (E-mail de notificação e automação)
+ */
+function apiGetSettings(payload) {
+  return runSecureRpc('getSettings', function(context, opId) {
+    return AdminService.getSettings(context, opId);
+  }, payload);
+}
+
+/**
+ * Gravação de configurações gerais (Apenas ADMINISTRADOR)
+ */
+function apiSaveSettings(payload) {
+  return runSecureRpc('saveSettings', function(context, opId) {
+    return AdminService.saveSettings(context, payload.settings || {}, opId);
+  }, payload);
+}
+
+/**
+ * Execução manual/imediata da rotina de fechamento do dia 17 e envio de PDF por e-mail
+ */
+function apiAdminExecuteClosingRoutine(payload) {
+  return runSecureRpc('executeClosingRoutine', function(context, opId) {
+    return AdminService.executeClosingRoutine(context, opId);
+  }, payload);
+}
+
+/**
+ * Execução manual/imediata da rotina de abertura do dia 01
+ */
+function apiAdminExecuteOpeningRoutine(payload) {
+  return runSecureRpc('executeOpeningRoutine', function(context, opId) {
+    return AdminService.executeOpeningRoutine(context, opId);
+  }, payload);
+}
+
+/**
+ * Gatilho de tempo para ser configurado no Google Apps Script (Execução diária às 00:05)
+ */
+function triggerDailyCheck() {
+  if (typeof NotificationService !== 'undefined') {
+    return NotificationService.checkAndRunScheduledTriggers();
+  }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     doGet,
     include,
     runSecureRpc,
     apiAdminMigratePasswords,
+    apiGetSettings,
+    apiSaveSettings,
+    apiAdminExecuteClosingRoutine,
+    apiAdminExecuteOpeningRoutine,
+    triggerDailyCheck,
     apiGetInitialState,
     apiGetTeamQueue,
     apiMakeChoice,
