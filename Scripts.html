@@ -1657,6 +1657,19 @@
         }
       });
 
+      // Ações Administrativas: Ativar Agendador Diário no Google
+      document.getElementById('btn-admin-setup-trigger')?.addEventListener('click', async () => {
+        if (!confirm('Deseja configurar o agendador automático diário no Google Apps Script?\n\nEle será executado todos os dias às 00:00 para abrir a competência no dia 01 e encerrar no dia 17 com envio do PDF.')) {
+          return;
+        }
+        try {
+          const res = await callServer('apiAdminSetupDailyTrigger', null, 'Configurando agendador no Google Apps Script...');
+          showToast(res.message || 'Agendador diário ativado com sucesso!', 'success');
+        } catch (err) {
+          showToast('Erro ao ativar agendador: ' + err.message, 'error');
+        }
+      });
+
       // Ações Administrativas: Recarregar Trilha de Auditoria
       document.getElementById('btn-refresh-audit')?.addEventListener('click', async () => {
         try {

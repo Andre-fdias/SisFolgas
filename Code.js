@@ -823,6 +823,40 @@ function triggerDailyCheck() {
   }
 }
 
+/**
+ * Instalação programática do agendador diário no Google Apps Script (Time-driven trigger)
+ */
+function setupConfigurarGatilhoDiarioAutomatico() {
+  if (typeof ScriptApp !== 'undefined' && typeof ScriptApp.getProjectTriggers === 'function') {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'triggerDailyCheck') {
+        ScriptApp.deleteTrigger(triggers[i]);
+      }
+    }
+    ScriptApp.newTrigger('triggerDailyCheck')
+      .timeBased()
+      .atHour(0)
+      .everyDays(1)
+      .create();
+    return {
+      success: true,
+      message: 'Agendador diário configurado com sucesso no Google Apps Script! (Execução diária às 00:00)'
+    };
+  }
+  return {
+    success: true,
+    message: '[Simulação Local] Agendador diário ativo para verificação do dia 01 e dia 17.'
+  };
+}
+
+function apiAdminSetupDailyTrigger(payload) {
+  return runSecureRpc('setupDailyTrigger', function(context, opId) {
+    AuthService.requireRole(context, [Config.ROLES.ADMIN], opId);
+    return setupConfigurarGatilhoDiarioAutomatico();
+  }, payload);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     doGet,
@@ -834,6 +868,8 @@ if (typeof module !== 'undefined' && module.exports) {
     apiAdminExecuteClosingRoutine,
     apiAdminExecuteOpeningRoutine,
     triggerDailyCheck,
+    setupConfigurarGatilhoDiarioAutomatico,
+    apiAdminSetupDailyTrigger,
     apiGetInitialState,
     apiGetTeamQueue,
     apiMakeChoice,

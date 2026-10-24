@@ -58,7 +58,10 @@
           <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0;">No dia 17, o sistema encerra automaticamente a janela de escolhas, gera a Escala Oficial em PDF e despacha por e-mail para publicação.</p>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-secondary" id="btn-admin-setup-trigger" style="border-color: rgba(59, 130, 246, 0.5); color: #93c5fd; font-size: 0.85rem; padding: 0.55rem 1rem;" title="Configurar agendador automático no Google Apps Script para rodar todo dia às 00:00">
+          ⏰ Ativar Agendador Diário
+        </button>
         <button class="btn btn-secondary" id="btn-admin-run-closing-now" style="border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: 0.85rem; padding: 0.55rem 1rem;" title="Executar fechamento agora, gerar PDF e disparar e-mail de teste">
           ⚡ Simular Fechamento Dia 17 Agora
         </button>
